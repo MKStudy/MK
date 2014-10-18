@@ -1,0 +1,2 @@
+all : boot.bin	
+	nasm -o boot.bin boot.asm

@@ -1,0 +1,53 @@
+	org	07c00h			; 告诉编译器程序加载到7c00处
+	mov	ax, cs
+	mov	ds, ax
+	mov	es, ax
+	call  	DispStr		; 调用显示字符串例程
+	
+	;调用int13读取磁盘数据
+
+	xor	ah, ah	; ┓
+	xor	dl, dl	; ┣ 软驱复位
+	int	13h	; ┛
+
+	
+	mov ah,02h			;读磁盘
+	mov al,1d			;读1个扇区
+	mov dl,0d			;驱动器号，0表示A盘
+	mov dh,0d			;磁头号/盘面
+	mov cl,01
+	mov ch,0d
+	
+	mov bx,200h			;ES:BX存入读取数据的内存地址
+	int 13h
+	
+	;mov ax,55h
+	;mov [200h],ax
+	call DispBuffer
+	
+	
+	
+	jmp	$				; 无限循环
+DispStr:
+	mov	ax, BootMessage
+	mov	bp, ax			; ES:BP = 串地址
+	mov	cx, 15			; CX = 串长度
+	mov	ax, 01301h		; AH = 13,  AL = 01h
+	mov	bx, 000ch		; 页号为0(BH = 0) 黑底红字(BL = 0Ch,高亮)
+	mov	dl, 0
+	int	10h			; 10h 号中断
+	ret
+BootMessage:		db	"my name is zxb!"
+
+DispBuffer:
+	mov ax,243h
+	mov	bp, ax			; ES:BP = 串地址
+	mov	cx, 15			; CX = 串长度
+	mov	ax, 01301h		; AH = 13,  AL = 01h
+	mov	bx, 000ch		; 页号为0(BH = 0) 黑底红字(BL = 0Ch,高亮)
+	mov	dl, 0
+	int	10h				; 10h 号中断
+	ret
+
+times 	510-($-$$)	db	0	; 填充剩下的空间，使生成的二进制代码恰好为512字节
+dw 	0xaa55				; 结束标志
