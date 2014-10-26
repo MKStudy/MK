@@ -6,6 +6,7 @@
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
 /* klib.asm */
+PUBLIC void setCR3(u32 pageDirBase);
 PUBLIC void	out_byte(u16 port, u8 value);
 PUBLIC u8	in_byte(u16 port);
 PUBLIC void	disp_str(char * info);

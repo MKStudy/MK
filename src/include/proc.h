@@ -64,6 +64,8 @@ struct proc {
 				    */
 	int p_parent;	//pid of parent
 	int nr_tty;
+
+	u32	pageDirBase;
 };
 
 struct task {
@@ -78,6 +80,8 @@ struct task {
 #define NR_TASKS	5
 #define NR_PROCS	32
 #define NR_NATIVE_PROCS 		1
+#define NR_ALL_PROCS (NR_TASKS + NR_PROCS)
+
 #define FIRST_PROC	proc_table[0]
 #define LAST_PROC	proc_table[NR_TASKS + NR_PROCS - 1]
 

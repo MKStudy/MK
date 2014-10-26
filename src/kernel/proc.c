@@ -39,7 +39,11 @@ PUBLIC void schedule()
 			if (p->p_flags == 0) {
 				if (p->ticks > greatest_ticks) {
 					greatest_ticks = p->ticks;
-					p_proc_ready = p;
+					if(p != p_proc_ready)
+					{
+						p_proc_ready = p;
+						setCR3(p->pageDirBase);
+					}
 				}
 			}
 		}

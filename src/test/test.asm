@@ -5,10 +5,10 @@ _start:
 push eax;
 push gs
 
-mov eax,27
-and eax,0xFFFC
-or eax,3
-mov gs,eax
+mov ax,27
+and ax,0xFFFC
+or ax,3
+mov gs,ax
 mov ah,0ch
 mov  byte al,[_ch]
 mov [gs:((80*15+75)*2)],ax

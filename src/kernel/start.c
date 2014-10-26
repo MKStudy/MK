@@ -23,7 +23,9 @@ typedef struct Color{
 
 void drawRect(int x1, int y1, int x2, int y2, Color color) ;
 void writeVRAM(int , int, int , int);
-void initGui();
+
+PUBLIC void setupPage();
+//void initGui();
 
 void drawRect(int x1, int y1, int x2, int y2, Color color) {
 /*
@@ -74,7 +76,41 @@ PUBLIC void cstart()
 	*p_idt_limit = IDT_SIZE * sizeof(struct gate) - 1;
 	*p_idt_base  = (u32)&idt;
 
+	setupPage();
+
 	init_prot();
 
 	disp_str("-----\"cstart\" finished-----\n");
+}
+
+#define PG_P			1	//; 页存在属性位
+#define PG_RWR			0	//; R/W 属性位值, 读/执行
+#define PG_RWW			2	//; R/W 属性位值, 读/写/执行
+#define PG_USS			0	//; U/S 属性位值, 系统级
+#define PG_USU			4	//; U/S 属性位值, 用户级
+PUBLIC void setupPage()
+{
+	u32 pageDirBase = PAGE_DIR_BASE;
+	u32 pageTbBase =  PAGE_DIR_BASE + 4*1024;
+	u32 value;
+	u32 i;
+
+	//初始分页目录
+	value = (pageTbBase | PG_P | PG_USU | PG_RWW);
+	for(i = 0; i < 1024; ++i)
+	{
+		*((u32*)(pageDirBase + i*4)) = value;
+		value += 4096;
+	}
+
+	//初始化页表
+	value = (PG_P | PG_USU | PG_RWW);
+	for(i = 0; i < 1048576; ++i)
+	{
+		*((u32*)(pageTbBase + i*4)) = value;
+		value += 4096;
+	}
+
+	setCR3(pageDirBase);
+
 }

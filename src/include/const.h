@@ -8,6 +8,10 @@
 #ifndef	_ORANGES_CONST_H_
 #define	_ORANGES_CONST_H_
 
+//分页
+#define	PAGE_DIR_BASE	0x500000	//5M
+
+
 /* max() & min() */
 #define	max(a,b)	((a) > (b) ? (a) : (b))
 #define	min(a,b)	((a) < (b) ? (a) : (b))

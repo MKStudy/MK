@@ -26,6 +26,25 @@ global	port_read
 global	port_write
 global  	initGui
 global 	writeVRAM
+global setCR3
+
+setCR3:
+	push ebp
+	mov ebp,esp
+	push eax
+
+	mov eax, [ebp+8]
+	mov cr3, eax
+	mov eax,cr0
+	or eax,0x80000000
+	mov cr0,eax
+	jmp short setCR3Jmp
+setCR3Jmp:
+	nop
+	pop eax
+	pop ebp
+	ret
+
 
 initGui:
 		push eax;

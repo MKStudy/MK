@@ -4,9 +4,9 @@ BaseOfKernelFile	equ	 01000h	; KERNEL.BIN 被加载到的位置 ----  段地址
 OffsetOfKernelFile	equ	     0h	; KERNEL.BIN 被加载到的位置 ---- 偏移地址
 
 BaseOfKernelFilePhyAddr	equ	BaseOfKernelFile * 10h
-KernelEntryPointPhyAddr	equ	030400h
+KernelEntryPointPhyAddr	equ	0xA00000
 
-PageDirBase		equ	200000h	; 页目录开始地址:		2M
+PageDirBase		equ	200000h	; 页目录开始地址:			2M
 PageTblBase		equ	201000h	; 页表开始地址:			2M + 4K
 
 ;----------------------------------------------------------------------------
@@ -122,7 +122,7 @@ LABEL_START:
 	;进入32位保护模式
 	call EnterPM
 
-
+	;不会执行到这里了！
 	jmp AddrKernelBase:AddrKernelOffset
 	hlt
 
@@ -603,14 +603,27 @@ LABEL_SEG_CODE32:
 
 	call DispMemInfo
 
-	call SetupPaging
+	;call SetupPaging
 
 	call InitKernel
+	;call CopyKernel
 
-	jmp	SelectorCode32:KernelEntryPointPhyAddr	; 正式进入内核 *
+	jmp	SelectorCode32:(KernelEntryPointPhyAddr)	; 正式进入内核 *
 
 	hlt
 	jmp $
+
+
+CopyKernel:
+	push 0x100000						;size=1M
+	mov eax,BaseOfKernelFilePhyAddr		;src
+	push eax
+	mov eax,KernelEntryPointPhyAddr		;des
+	push eax
+	call MemCpy
+	add esp,12
+	ret
+
 
 ; InitKernel ---------------------------------------------------------------------------------
 ; 将 KERNEL.BIN 的内容经过整理对齐后放到新的位置

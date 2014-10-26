@@ -11,6 +11,8 @@
 
 
 PRIVATE void init_fs();
+PRIVATE u32 do_open(MESSAGE* pMsg);
+PRIVATE void do_read(MESSAGE* pMsg);
 PRIVATE void read_file(MESSAGE* pMsg);
 int ReadFileToMemory(int nFatNr, char* szBuffer);
 int isFatEnd(int nFatNr, u32* pNextFat);
@@ -41,6 +43,8 @@ PRIVATE u32     sectorsOfFat;                    //每个FAT占用的扇区数
 PRIVATE u32     nrClusterOfRootDir;         //根目录所在的第一个簇的簇号
 
 
+PRIVATE struct ROOT_DIR	cur_dir;
+
 PUBLIC void task_fs()
 {
 	MESSAGE fs_msg;
@@ -55,12 +59,14 @@ PUBLIC void task_fs()
 
 		switch (msgtype) {
 		case OPEN:
-			//fs_msg.FD = do_open();
+			do_open(&fs_msg);
 			break;
 		case CLOSE:
 			//fs_msg.RETVAL = do_close();
 			break;
 		case READ:
+			do_read(&fs_msg);
+			break;
 		case WRITE:
 			//fs_msg.CNT = do_rdwt();
 			break;
@@ -98,6 +104,94 @@ PUBLIC void task_fs()
 		}
 }
 
+PRIVATE u32 do_open(MESSAGE* pMsg)
+{
+	struct ROOT_DIR* pDir;
+	char szBuffer[512];
+	char* szFileName = pMsg->u.m2.m2p1;
+	char* szDesBuffer = pMsg->u.m2.m2p2;
+	int i,j;
+	int nCurFat;
+	int nNextFat;
+
+	    //printf(szFileName);
+	    //printf("\n");
+
+	    //open hd
+	    MESSAGE msg;
+		reset_msg(&msg);
+		msg.type = DEV_OPEN;
+		send_recv(BOTH, TASK_HD, &msg);
+
+	    //read root dir
+	    reset_msg(&msg);
+	    msg.type = DEV_READ;
+	    msg.DEVICE = 0;
+	    msg.POSITION = (offsetSectorCount+sectorsReserved+sectorsOfFat*fatCount)*SECTOR_SIZE;
+	    msg.CNT = SECTOR_SIZE;
+	    msg.PROC_NR = TASK_FS;
+	    msg.BUF = (void*)szBuffer;
+	    send_recv(BOTH, TASK_HD, &msg);
+
+
+	    pDir = (struct ROOT_DIR*)szBuffer;
+	    for(i = 0; i < 128;++i)
+	    {
+	        for(j = 0; j < 8; ++j)
+	            {
+	                if(pDir->szFileName[j] != szFileName[j])
+	                    break;
+	            }
+	            if(j >= 8)
+	            {
+	                    //printf("Find it\n");
+	                    break;
+	            }
+	            pDir++;
+	    }
+	    //TODO根目录遍历有问题
+	    memcpy(&cur_dir, pDir, sizeof(struct ROOT_DIR));
+	    if(i < 128)
+	    	pMsg->u.m3.m3i1 = pDir->fileSize;
+
+	    return 1;
+
+}
+
+PRIVATE void do_read(MESSAGE* pMsg)
+{
+	char* szDesBuffer = pMsg->u.m3.m3p1;
+	int size = pMsg->u.m3.m3i1;
+	int offsetInFile = pMsg->u.m3.m3i2;
+	int nCountFatSkip = offsetInFile/SECTOR_SIZE;
+	int nByteRest = offsetInFile%SECTOR_SIZE;
+
+	int nCurFat = cur_dir.lowCluster;
+	int nNextFat;
+
+
+		while((nCountFatSkip > 0) && !isFatEnd(nCurFat, &nNextFat))
+		{
+			nCountFatSkip--;
+			nCurFat = nNextFat;
+
+		}
+
+
+	while(!isFatEnd(nCurFat, &nNextFat))
+		{
+
+			size -= ReadFileToMemory(nCurFat, szDesBuffer);
+
+		    nCurFat = nNextFat;
+		    szDesBuffer += SECTOR_SIZE;
+		    if(size <= 0)
+		    	break;
+		}
+
+		if(nByteRest)
+			memcpy(szDesBuffer, szDesBuffer + nByteRest, pMsg->u.m3.m3i1);
+}
 PRIVATE void read_file(MESSAGE* pMsg)
 {
     struct ROOT_DIR* pDir;
@@ -110,13 +204,13 @@ PRIVATE void read_file(MESSAGE* pMsg)
 
     //printf(szFileName);
     //printf("\n");
-
-    //open hd
     MESSAGE msg;
+    /*
+    //open hd
 	reset_msg(&msg);
 	msg.type = DEV_OPEN;
 	send_recv(BOTH, TASK_HD, &msg);
-
+	*/
     //read root dir
     reset_msg(&msg);
     msg.type = DEV_READ;
@@ -152,10 +246,11 @@ PRIVATE void read_file(MESSAGE* pMsg)
         szDesBuffer += SECTOR_SIZE;
     }
 
+    /*
     reset_msg(&msg);
 	msg.type = DEV_CLOSE;
 	send_recv(BOTH, TASK_HD, &msg);
-
+	*/
 
 
 
@@ -245,11 +340,11 @@ PRIVATE void init_fs()
     msg.BUF = (void*)szBuffer;
     send_recv(BOTH, TASK_HD, &msg);
 
-
+    /*
 	reset_msg(&msg);
 	msg.type = DEV_CLOSE;
 	send_recv(BOTH, TASK_HD, &msg);
-
+	*/
 
    bytesPerSector = *((u16*)(szBuffer + 0xB));
    sectorsPerCluster = *((u8*)(szBuffer + 0xD));

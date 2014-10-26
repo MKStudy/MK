@@ -8,7 +8,7 @@ OBJS=kernelex.o start.o global.o kliba.o stringAsm.o protect.o i8259.o klib.o ma
 all : kernelex.elf
 
 kernelex.elf : $(OBJS)
-	$(LD) -Ttext 0x30400  -m elf_i386 -o ./kernelex.elf $(OBJS)
+	$(LD) -Ttext 0xA00000  -m elf_i386 -o ./kernelex.elf $(OBJS)
 
 string.o : ./string.c
 	$(CC) -fno-stack-protector -c -m32 -g  -fno-builtin -o $@ $<

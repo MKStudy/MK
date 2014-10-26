@@ -115,6 +115,8 @@ PUBLIC int kernel_main()
 
 		p_proc->ticks = p_proc->priority = prio;
 
+		p_proc->pageDirBase = PAGE_DIR_BASE;
+
 		p_task_stack -= p_task->stacksize;
 		p_proc++;
 		p_task++;
@@ -183,31 +185,31 @@ void Init()
  PRIVATE char szShellStack[STACK_SIZE_DEFAULT];
 void Shell()
 {
-    MESSAGE msg;
+	MESSAGE msg;
 
+	while (1)
+	{
+		printf("$:");
+		send_recv(BOTH, TASK_TTY, &msg);
+		if (msg.type == TTY_ENTER)
+		{
+			char* pFileName = (char*) msg.u.m2.m2p1;
+			printf("%s\n", pFileName);
+			if (strcmp(pFileName, "TESTFILE") == 0
+					|| strcmp(pFileName, "TESTCALL") == 0)
+			{
+				char szFileName[512] =
+				{ 0 };
 
-
-	while (1) {
-        printf("$:");
-        send_recv(BOTH, TASK_TTY, &msg);
-        if(msg.type == TTY_ENTER)
-        {
-            char* pFileName = (char*)msg.u.m2.m2p1;
-            printf("%s\n", pFileName);
-            if(strcmp(pFileName, "TESTFILE") == 0 ||
-            strcmp(pFileName, "TESTCALL") == 0)
-            {
-                    char szFileName[512] = {0};
-
-                    memcpy(szFileName, pFileName, strlen(pFileName));
-                    reset_msg(&msg);
-                    msg.type = EXEC;
-                    msg.u.m2.m2p1 = (void*)szFileName;
-                    sendrec(SEND, TASK_MM,&msg);
-            }
-            //printf(msg.u.m2.m2p1);
-            //printf("\n");
-        }
+				memcpy(szFileName, pFileName, strlen(pFileName));
+				reset_msg(&msg);
+				msg.type = EXEC;
+				msg.u.m2.m2p1 = (void*) szFileName;
+				send_recv(BOTH, TASK_MM, &msg);
+			}
+			//printf(msg.u.m2.m2p1);
+			//printf("\n");
+		}
 		//printf("<Ticks:%d>", get_ticks());
 		//milli_delay(200);
 	}
@@ -335,6 +337,8 @@ PUBLIC void StartShell()
 		p_proc->next_sending = 0;
 
 		p_proc->ticks = p_proc->priority = prio;
+
+		p_proc->pageDirBase = PAGE_DIR_BASE;
 }
 
 void TestNewProc()
