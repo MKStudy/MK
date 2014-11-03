@@ -8,6 +8,12 @@
 #ifndef	_ORANGES_CONST_H_
 #define	_ORANGES_CONST_H_
 
+/////////////////////////////////////////////
+//文件系统
+#define  MAX_FS_FILES		64
+#define	 MAX_PROC_FILES		10
+/////////////////////////////////////////////
+
 //分页
 #define	PAGE_DIR_BASE	0x500000	//5M
 

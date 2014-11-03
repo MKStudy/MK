@@ -1,5 +1,6 @@
 #include "../include/type.h"
 #include "../include/const.h"
+#include "../include/fs.h"
 #include "../include/protect.h"
 #include "../include/proc.h"
 #include "../include/tty.h"
@@ -37,7 +38,6 @@ PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg);
 MESSAGE mm_msg;
 PUBLIC void task_mm()
 {
-
 	printf("mm run!\n");
 	mm_init();
 
@@ -74,7 +74,6 @@ PUBLIC void task_mm()
             if (reply) {
                 mm_msg.type = SYSCALL_RET;
                 send_recv(SEND, src, &mm_msg);
-                printf("mm end!\n");
             }
         }
 }
@@ -82,16 +81,23 @@ PUBLIC void task_mm()
 PRIVATE void mm_init()
 {
 	int i;
+
+	//内核占用的物理空间不参与分配
 	for(i = 0; i < USER_ADDR; ++i)
 		mem_map[i] = 1;
+
+	//内核以外的物理空间，最大4GB，实际可能没有那么大
 	for(i = USER_ADDR; i < PAGE_COUNTS; ++i)
 		mem_map[i] = 0;
 }
-//获取一个可用的物理页，返回这个物理页的物理地址
+
+//
+//获取一个可用的物理页，返回这个物理页的物理地址，4KB对齐
+//
 PRIVATE u32 get_free_page(void)
 {
 	int i = 0;
-	//从12M处开始分配物理页
+	//从内核空间外分配物理页
 	for(i = USER_ADDR; i < PAGE_COUNTS; ++i)
 	{
 		if(!mem_map[i])
@@ -101,16 +107,26 @@ PRIVATE u32 get_free_page(void)
 		}
 	}
 }
-//释放页，addr为物理地址
-PRIVATE void free_page(u32 addr)
+
+//
+//释放页，addr为物理地址,必须4KB对齐
+//
+PRIVATE void free_page(u32 pAddr)
 {
-	addr >>=12;
-	if(addr < USER_ADDR)
-		panic("free_page error,page:%d\n", addr);
-	mem_map[addr]--;
+	//物理地址必须4KB对齐
+	if(pAddr & 0xFFFF)
+		panic("free_page error, pAddr:0x%x\n", pAddr);
+
+	//释放的物理地址不能属于内核空间
+	pAddr >>=12;
+	if(pAddr < USER_ADDR)
+		panic("free_page error,page:0x%x\n", pAddr);
+	mem_map[pAddr]--;
 }
 
-
+//
+//为新进程设置分页
+//
 PRIVATE void setupProgramPage(u32 pageDirBase, u32 vAddr, u32 pageCount)
 {
 	int i;
@@ -130,8 +146,10 @@ PRIVATE void setupProgramPage(u32 pageDirBase, u32 vAddr, u32 pageCount)
 		*((u32*)(pageTable + (pageIndex + i)*4)) = get_free_page() | PG_P | PG_USU | PG_RWW;
 }
 
-
-PRIVATE void readFile(u32 pageDirBase, u32 vAddr, u32 offsetInFile, u32 memSize)
+//
+//将新进程的执行映像从磁盘读到物理内存中
+//
+PRIVATE void readFile(u32 flip, u32 pageDirBase, u32 vAddr, u32 offsetInFile, u32 memSize)
 {
 	u32 pageCount = (memSize >> 12) + 1;
 	u32 dirIndex = vAddr >> 22;
@@ -159,11 +177,16 @@ PRIVATE void readFile(u32 pageDirBase, u32 vAddr, u32 offsetInFile, u32 memSize)
 		msg.u.m3.m3p1 = (void*)pAddr;
 		msg.u.m3.m3i1 = uCount;
 		msg.u.m3.m3i2 = offsetInFile;
+		msg.u.m3.m3i3 = flip;
 		send_recv(BOTH, TASK_FS, &msg);
 
 		memSize -= uCount;
 	}
 }
+
+//
+//为新进程分配栈空间
+//
 PRIVATE void AllocStack(u32 pageDirBase, u32 vAddr, u32 stackSize)
 {
 	int i;
@@ -193,10 +216,10 @@ PRIVATE u32	FindEmpyProcessID()
 		if(FREE_SLOT == proc_table[i].p_flags)
 			return i;
 	}
-
 	panic("Can't find a empty Process ID\n");
 	return 0;
 }
+
 PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg)
 {
 	u8 privilege;
@@ -208,7 +231,6 @@ PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg)
 	u32 pageTable;
 
 	u32 pid = FindEmpyProcessID();
-	//u32 uAddrStart = 24*1024*1024;
 
 	u32 fileSize = 0;
 	u32 bufferSize = 4 * 1024;
@@ -293,7 +315,8 @@ PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg)
 	msg.u.m2.m2p1 = pFileName;
 	send_recv(BOTH, TASK_FS, &msg);
 	fileSize = msg.u.m3.m3i1;
-	printf("file size:%d\n", fileSize);
+	int flip = msg.u.m3.m3i2;
+	printf("file size:0x%x\n", fileSize);
 
 	bufferSize = fileSize > bufferSize ? bufferSize : fileSize;
 
@@ -304,7 +327,7 @@ PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg)
 	send_recv(BOTH, TASK_FS, &msg);
 
 	pHdr = (Elf32_Ehdr*) (void*) mm_buffer;
-	printf("app entry:0x%x\n", pHdr->e_entry);
+	printf("program entry:0x%x\n", pHdr->e_entry);
 
 	p_proc->regs.eip = pHdr->e_entry;
 
@@ -318,26 +341,24 @@ PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg)
 		pageCount = (pPHdr->p_memsz >> 12) + 1;
 
 		setupProgramPage(p_proc->pageDirBase, vAddr, pageCount);
-		readFile(p_proc->pageDirBase, vAddr, pPHdr->p_offset, pPHdr->p_memsz);
+		readFile(flip, p_proc->pageDirBase, vAddr, pPHdr->p_offset, pPHdr->p_memsz);
 
-		printf("program head memsize:%d\n", pPHdr->p_memsz);
+		printf("program head,entry:0x%x, size:0x%x\n",pPHdr->p_vaddr, pPHdr->p_memsz);
 
 		if(i == pHdr->e_phnum - 1 && pPHdr->p_vaddr != 0)
 			uStackBase = ((pPHdr->p_vaddr + pPHdr->p_memsz) + 4*1024) & 0xFFFFF000;
 	}
 
+	reset_msg(&msg);
+	msg.type = CLOSE;
+	msg.u.m3.m3i1 = flip;
+	send_recv(BOTH, TASK_FS, &msg);
+
 	AllocStack(p_proc->pageDirBase, uStackBase, 4*1024);
 	p_proc->regs.esp = (u32) (uStackBase + 4*1024);
-	/*
-	 for(i = 0; i < pHdr->e_shnum; ++i)
-	 {
-	 if(i == 0)
-	 continue;
-	 pSHdr = (Elf32_Shdr*)(void*)(uAddrStart + pHdr->e_shoff + i*pHdr->e_shentsize);
-	 //pSHdr->sh_addr += uAddrStart;
-	 }
-	 */
 
+	printf("program stack top:0x%x\n", uStackBase + 4*1024);
+	//p_flags=0，此进程即可被调度运行
 	p_proc->p_flags = 0;
 
 }

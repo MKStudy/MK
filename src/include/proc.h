@@ -66,6 +66,7 @@ struct proc {
 	int nr_tty;
 
 	u32	pageDirBase;
+	u32	filp[MAX_PROC_FILES];
 };
 
 struct task {

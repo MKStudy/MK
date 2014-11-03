@@ -45,11 +45,11 @@ SectorsPerFAT			equ AddrOfDBR+24h
 ClusterOfRootDir		equ AddrOfDBR+0x2c
 
 AddrOfMBRParam			equ 0x8000	;磁盘参数地址
-	NumOfCylinders			equ AddrOfMBRParam+4h
-	NumOfHeads				equ AddrOfMBRParam+8h
-	NumOfSectorsPerTrack	equ	AddrOfMBRParam+12d
-	NumOfTotalSectors		equ AddrOfMBRParam+10h
-	BytesPerSector			equ AddrOfMBRParam+18h
+NumOfCylinders			equ AddrOfMBRParam+4h
+NumOfHeads				equ AddrOfMBRParam+8h
+NumOfSectorsPerTrack	equ	AddrOfMBRParam+12d
+NumOfTotalSectors		equ AddrOfMBRParam+10h
+BytesPerSector			equ AddrOfMBRParam+18h
 
 AddrOfRootDir			equ 0x9800	;fat32 根目录扇区地址
 AddrOfFAT				equ 0x8c00	;FAT扇区加载地址
@@ -65,11 +65,11 @@ AddrKernelOffset		equ 0
 ;	Attr:	dw(lower 4 bits of higher byte are always 0)
 
 %macro Descriptor 3
-	dw	%2 & 0FFFFh				; 段界限1
-	dw	%1 & 0FFFFh				; 段基址1
-	db	(%1 >> 16) & 0FFh			; 段基址2
+	dw	%2 & 0FFFFh							; 段界限1
+	dw	%1 & 0FFFFh							; 段基址1
+	db	(%1 >> 16) & 0FFh					; 段基址2
 	dw	((%2 >> 8) & 0F00h) | (%3 & 0F0FFh)	; 属性1 + 段界限2 + 属性2
-	db	(%1 >> 24) & 0FFh			; 段基址3
+	db	(%1 >> 24) & 0FFh					; 段基址3
 %endmacro ; 共 8 字节
 
 	org BaseOfLoaderPhyAddr
@@ -80,7 +80,7 @@ LABEL_GDT:				Descriptor 		0,			  0,		0
 LABEL_DESC_CODE32:		Descriptor		0,		0fffffh, 		DA_CR  | DA_32 | DA_LIMIT_4K
 LABEL_DESC_FLAT_RW:		Descriptor      0,      0fffffh, 		DA_DRW | DA_32 | DA_LIMIT_4K			; 0 ~ 4G
 LABEL_DESC_VIDEO:		Descriptor	0B8000h,	0FFFFh,			DA_DRW | DA_DPL3						; 显存首地址
-LABEL_DESC_VRAM:		Descriptor	0A0000h,	0FFFFFh,			DA_DRW | DA_32 | DA_LIMIT_4K						; 显存首地址
+LABEL_DESC_VRAM:		Descriptor	0A0000h,	0FFFFFh,		DA_DRW | DA_32 | DA_LIMIT_4K						; 显存首地址
 GdtLen		equ	$-LABEL_GDT
 GdtPtr:		dw	GdtLen - 1
 			dd	LABEL_GDT		; 基地址
@@ -169,12 +169,12 @@ EnterPM:
 GetMemSize:
 	; 得到内存数
 	mov	ebx, 0			; ebx = 后续值, 开始时需为 0
-	mov	di, _MemChkBuf		; es:di 指向一个地址范围描述符结构（Address Range Descriptor Structure）
+	mov	di, _MemChkBuf	; es:di 指向一个地址范围描述符结构（Address Range Descriptor Structure）
 .MemChkLoop:
 	mov	eax, 0E820h		; eax = 0000E820h
 	mov	ecx, 20			; ecx = 地址范围描述符结构的大小
-	mov	edx, 0534D4150h		; edx = 'SMAP'
-	int	15h			; int 15h
+	mov	edx, 0534D4150h	; edx = 'SMAP'
+	int	15h				; int 15h
 	jc	.MemChkFail
 	add	di, 20
 	inc	dword [_dwMCRNumber]	; dwMCRNumber = ARDS 的个数
