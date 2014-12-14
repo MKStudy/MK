@@ -34,6 +34,7 @@ PRIVATE void free_page(u32 addr);
 PRIVATE void do_exec_for_Page(MESSAGE* pMsg);
 PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg);
 
+PRIVATE void do_exit(MESSAGE* pMsg);
 
 MESSAGE mm_msg;
 PUBLIC void task_mm()
@@ -58,7 +59,7 @@ PUBLIC void task_mm()
                 reply = 1;
                 break;
             case EXIT:
-                //do_exit(mm_msg.STATUS);
+                do_exit(&mm_msg);
                 reply = 0;
                 break;
             case WAIT:
@@ -91,6 +92,20 @@ PRIVATE void mm_init()
 		mem_map[i] = 0;
 }
 
+PRIVATE void do_exit(MESSAGE* pMsg)
+{
+	int status = pMsg->u.m1.m1i1;
+	int i;
+	int pid = pMsg->source;
+	struct proc* p = &proc_table[pid];
+
+	//TODO 通知文件系统，进程退出
+
+	//TODO 释放进程的内存
+
+	p->p_flags = FREE_SLOT;
+	printf("pid:%d exit!\n", pid);
+}
 //
 //获取一个可用的物理页，返回这个物理页的物理地址，4KB对齐
 //
@@ -151,6 +166,11 @@ PRIVATE void setupProgramPage(u32 pageDirBase, u32 vAddr, u32 pageCount)
 //
 PRIVATE void readFile(u32 flip, u32 pageDirBase, u32 vAddr, u32 offsetInFile, u32 memSize)
 {
+	//
+	char szBuffer[27] = {0};
+	//
+
+
 	u32 pageCount = (memSize >> 12) + 1;
 	u32 dirIndex = vAddr >> 22;
 	u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
@@ -164,7 +184,13 @@ PRIVATE void readFile(u32 flip, u32 pageDirBase, u32 vAddr, u32 offsetInFile, u3
 	{
 		if(memSize <= 0)
 			return;
+
+		u32 offsetInPage = vAddr & 0xFFF;
 		u32 pAddr = *((u32*)(pageTable + (pageIndex + i)*4))  & 0xFFFFF000;	//physical address
+
+
+
+
 		uCount = 4096;
 		if(memSize <= 4096)
 		{
@@ -174,11 +200,17 @@ PRIVATE void readFile(u32 flip, u32 pageDirBase, u32 vAddr, u32 offsetInFile, u3
 
 		reset_msg(&msg);
 		msg.type = READ;
-		msg.u.m3.m3p1 = (void*)pAddr;
+		msg.u.m3.m3p1 = (void*)(pAddr + offsetInPage);
 		msg.u.m3.m3i1 = uCount;
 		msg.u.m3.m3i2 = offsetInFile;
 		msg.u.m3.m3i3 = flip;
 		send_recv(BOTH, TASK_FS, &msg);
+
+		//
+		memcpy((void*)szBuffer, (void*)pAddr, 27);
+		printf("@vAddr:0x%x,pAddr:0x%x\n",vAddr, pAddr);
+		printf("#%s\n", pAddr);
+		//
 
 		memSize -= uCount;
 	}
@@ -343,7 +375,7 @@ PRIVATE void do_exec_for_Page_Ex(MESSAGE* pMsg)
 		setupProgramPage(p_proc->pageDirBase, vAddr, pageCount);
 		readFile(flip, p_proc->pageDirBase, vAddr, pPHdr->p_offset, pPHdr->p_memsz);
 
-		printf("program head,entry:0x%x, size:0x%x\n",pPHdr->p_vaddr, pPHdr->p_memsz);
+		printf("program head,entry:0x%x, offset:0x%0x, size:0x%x\n",pPHdr->p_vaddr,pPHdr->p_offset, pPHdr->p_memsz);
 
 		if(i == pHdr->e_phnum - 1 && pPHdr->p_vaddr != 0)
 			uStackBase = ((pPHdr->p_vaddr + pPHdr->p_memsz) + 4*1024) & 0xFFFFF000;

@@ -1,5 +1,8 @@
+extern exit
 [SECTION text]
 [BITS	32]
+
+
 global _start
 _start:
 push eax;
@@ -16,10 +19,11 @@ mov [gs:((80*15+75)*2)],ax
 pop gs
 pop eax
 
-jmp $
+call exit
+jmp $	;never arrive here
 
 [SECTION .data]
 ALIGN	32
 DataString:				db		"THIS IS DATA!"
 _ch:                                 db       'Z'
-times   1024                    db "11"
+times   10                    db "ww"

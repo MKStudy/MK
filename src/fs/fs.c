@@ -184,6 +184,7 @@ PRIVATE void do_open(MESSAGE* pMsg)
 PRIVATE void do_read(MESSAGE* pMsg)
 {
 	char* szDesBuffer = pMsg->u.m3.m3p1;
+	char* szOrg = szDesBuffer;
 	int size = pMsg->u.m3.m3i1;
 	int offsetInFile = pMsg->u.m3.m3i2;
 	u32 flip = pMsg->u.m3.m3i3;
@@ -213,7 +214,7 @@ PRIVATE void do_read(MESSAGE* pMsg)
 	}
 
 	if (nByteRest)
-		memcpy(szDesBuffer, szDesBuffer + nByteRest, pMsg->u.m3.m3i1);
+		memcpy(szOrg, szOrg + nByteRest, pMsg->u.m3.m3i1);
 }
 PRIVATE void read_file(MESSAGE* pMsg)
 {

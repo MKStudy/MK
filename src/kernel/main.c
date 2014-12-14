@@ -197,7 +197,8 @@ void Shell()
 			char* pFileName = (char*) msg.u.m2.m2p1;
 			printf("%s\n", pFileName);
 			if (strcmp(pFileName, "TESTFILE") == 0
-					|| strcmp(pFileName, "TESTCALL") == 0)
+					|| strcmp(pFileName, "TESTCALL") == 0
+					|| strcmp(pFileName, "ECHOXXXX") == 0)
 			{
 				char szFileName[512] =
 				{ 0 };

@@ -15,6 +15,7 @@ cp ./osloader/osloader.bin /mnt/fat32/
 cp ./kernel/kernelex.elf /mnt/fat32/
 cp ./test/TESTFILE	/mnt/fat32/
 cp ./test/TESTCALL /mnt/fat32/
+cp ./app/ECHOXXXX /mnt/fat32/
 sync
 
 
