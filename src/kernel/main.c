@@ -266,7 +266,7 @@ void TestC()
 
     printf("TESTFILE READ END!\n");
     //printf((char*)(addrStart + 0x1040));
-    SetNewProcEx(addrStart, 9);
+    //SetNewProcEx(addrStart, 9);
 	/* assert(0); */
 	while(1){
 		//printf("C1");
@@ -350,93 +350,6 @@ void TestNewProc()
     {
     }
 }
-
-PUBLIC void SetNewProcEx(u32 uAddrStart, int pid)
-{
-
-    u8    privilege;
-    u8    rpl;
-	int   eflags;
-	int   prio;
-	int i;
-	u32     uProgramEntry;
-	u32     uDataBase = uAddrStart;
-	u32     uDataLimit = 0xFFFFFFFF;
-    struct proc* p_proc;
-    Elf32_Ehdr *      pHdr;
-    Elf32_Phdr*       pPHdr;
-    Elf32_Shdr*        pSHdr;
-
-    pHdr = (Elf32_Ehdr*)(void*)uAddrStart;
-
-
-    for(i = 0; i < pHdr->e_phnum; ++i)
-    {
-
-        pPHdr = (Elf32_Phdr*)(void*)(uAddrStart + pHdr->e_phoff + i*pHdr->e_phentsize);
-         pPHdr->p_paddr += uAddrStart;
-        pPHdr->p_vaddr += uAddrStart;
-
-        if(i == 0)
-            uProgramEntry = uAddrStart + pPHdr->p_offset;
-    }
-
-    for(i = 0; i < pHdr->e_shnum; ++i)
-    {
-        if(i == 0)
-            continue;
-        pSHdr = (Elf32_Shdr*)(void*)(uAddrStart + pHdr->e_shoff + i*pHdr->e_shentsize);
-        pSHdr->sh_addr += uAddrStart;
-
-
-    }
-
-    privilege = PRIVILEGE_USER;
-    rpl       = RPL_USER;
-    eflags    = 0x202; /* IF=1, bit 2 is always 1 */
-    prio      = 5;
-    p_proc = &proc_table[pid];
-    strcpy(proc_table[pid].name, "TEST");	/* name of the process */
-    p_proc->p_parent = NO_TASK;
-		//p_proc->pid = i;			/* pid */
-
-
-                //p_proc->ldt_sel = selector_ldt;
-                memcpy(&p_proc->ldts[0], &gdt[SELECTOR_KERNEL_CS >> 3],sizeof(struct descriptor));
-                p_proc->ldts[0].attr1 = DA_C | privilege << 5;
-
-                memcpy(&p_proc->ldts[1], &gdt[SELECTOR_KERNEL_DS >> 3], sizeof(struct descriptor));
-                p_proc->ldts[1].attr1 = DA_DRW | privilege << 5;
-
-               init_desc(&p_proc->ldts[2], uDataBase, uDataLimit, DA_32 | DA_LIMIT_4K | DA_DRW | privilege << 5);
-
-
-        p_proc->regs.cs	= (0 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.ds	= (16 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.es	= (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.fs	= (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.ss	= (8 & SA_RPL_MASK & SA_TI_MASK) | SA_TIL | rpl;
-		p_proc->regs.gs	= (SELECTOR_KERNEL_GS & SA_RPL_MASK) | rpl;
-
-		p_proc->regs.eip =  uProgramEntry;
-		p_proc->regs.esp = (u32)(task_stack + STACK_SIZE_DEFAULT);
-		p_proc->regs.eflags = eflags;
-
-		p_proc->nr_tty		= 0;
-
-		p_proc->p_flags = 0;
-		p_proc->p_msg = 0;
-		p_proc->p_recvfrom = NO_TASK;
-		p_proc->p_sendto = NO_TASK;
-		p_proc->has_int_msg = 0;
-		p_proc->q_sending = 0;
-		p_proc->next_sending = 0;
-
-		p_proc->ticks = p_proc->priority = prio;
-
-
-}
-
 /*****************************************************************************
  *                                panic
  *****************************************************************************/

@@ -16,48 +16,12 @@
 #include "../include/global.h"
 #include "../include/proto.h"
 
-typedef struct Color{
-    unsigned char red;
-    unsigned char green;
-    unsigned char blue;
-}Color;
-
-void drawRect(int x1, int y1, int x2, int y2, Color color) ;
-void writeVRAM(int , int, int , int);
-
 PUBLIC void setupPage();
-//void initGui();
-
-void drawRect(int x1, int y1, int x2, int y2, Color color) {
-/*
-	int i;
-	for(i = 0xa0000; i <= 0xaffff; i++)
-	{
-		writeVRAM(i, i &0xF);
-	}
-	return;
-	*/
-   if (x2>x1 && y2>y1) {
-     int x=0,y=0;
-     for (y=y1;y<y2;++y) {
-       for (x=x1;x<x2;++x) {
-        //disp_str("Bfore writeRAM\n");
-        writeVRAM((y*800+x)*3, color.blue, color.green, color.red);
-       }
-     }
-   }
-}
-
 /*======================================================================*
                             cstart
  *======================================================================*/
 PUBLIC void cstart()
 {
-	//Color startColor = {240,240,240};
-    //Color endColor = {160,160,160};
-
-    //initGui();
-    //drawRect(0,0, 10, 10, endColor);
 	disp_str("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n-----\"cstart\" begins-----\n");
 
 	/* 将 LOADER 中的 GDT 复制到新的 GDT 中 */

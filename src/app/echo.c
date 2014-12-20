@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
 {
 	static char szStaticText[] = "static data\n";
 	printx("echo run!\n");
-	printx((char*)0x140142C);
+	printx(szText);
 	printx(szStaticText);
 	return 0;
 }
