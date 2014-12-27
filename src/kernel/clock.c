@@ -19,6 +19,7 @@
  clock_handler
  *======================================================================*/
 PUBLIC void clock_handler(int irq) {
+	char buffer[10];
 	ticks++;
 	p_proc_ready->ticks--;
 
@@ -48,6 +49,7 @@ PUBLIC void milli_delay(int milli_sec) {
  init_clock
  *======================================================================*/
 PUBLIC void init_clock() {
+
 	/* 初始化 8253 PIT */
 	out_byte(TIMER_MODE, RATE_GENERATOR);
 	out_byte(TIMER0, (u8) (TIMER_FREQ / HZ));

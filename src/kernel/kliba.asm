@@ -14,6 +14,7 @@ extern	disp_pos
 [SECTION .text]
 
 ; 导出函数
+global	memtest_sub
 global	disp_str
 global	disp_color_str
 global	out_byte
@@ -24,9 +25,53 @@ global	enable_int
 global	disable_int
 global	port_read
 global	port_write
-global  	initGui
 global 	writeVRAM
 global setCR3
+
+global updateGDT
+updateGDT:
+int 0x80
+ret
+
+
+memtest_sub:	;unsigned int memtest_sub(unsigned int start, unsigned int end)
+	push	edi
+	push	esi
+	push 	ebx
+	push 	edx
+	mov		esi,0xAA55AA55
+	mov 	edi,0x55AA55AA
+	mov		eax,[ESP+16+4]
+mts_loop:
+	mov		ebx,eax
+	add		ebx,0xFFFFC
+	mov		edx,[ebx]
+	mov		[ebx],esi
+	xor		DWORD [ebx],0xFFFFFFFF
+	cmp		edi,[ebx]
+	jne		mts_fin
+	xor		DWORD [ebx],0xFFFFFFFF
+	cmp		esi,[ebx]
+	jne		mts_fin
+	mov		[ebx],edx
+	add		eax,0x100000					;1M
+	cmp		eax,[esp+16+8]
+
+	jbe		mts_loop
+	pop 	edx
+	pop		ebx
+	pop		esi
+	pop		edi
+	ret
+mts_fin:
+	mov		[ebx],edx
+	pop 	edx
+	pop		ebx
+	pop		esi
+	pop		edi
+	ret
+
+
 
 setCR3:
 	push ebp
@@ -45,39 +90,6 @@ setCR3Jmp:
 	pop ebp
 	ret
 
-
-initGui:
-		push eax;
-
-        mov al, 0x11
-        out 0x20, al
-        out 0xa0, al
-
-        mov al, 0x20
-        out 0x21, al
-
-        mov al, 0x28
-        out 0xa1, al
-
-        mov al, 0x04
-        out 0x21, al
-
-        mov al, 0x02
-        out 0xa1, al
-
-        mov al, 0x01
-        out 0x21, al
-        out 0xa1, al
-
-        mov al, 11111101B
-        out 0x21, al
-
-        mov al, 11111111B
-        out 0xa1, al
-
-		pop eax
-
-        ret
 
 writeVRAM:
 		push ebp

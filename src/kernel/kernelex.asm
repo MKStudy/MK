@@ -105,6 +105,8 @@ csinit:		; “这个跳转指令强制使用刚刚初始化的结构”——<<O
 
 	jmp	kernel_main
 
+	lgdt	[gdt_ptr]
+	ret
 
 ; 中断和异常 -- 硬件中断
 ; ---------------------------------
@@ -325,6 +327,16 @@ sys_call_ex:
 	mov ah,0ch
 	mov al,'X'
 	mov [gs:((80*15+72)*2)],ax
+
+	;lgdt	[gdt_ptr]
+	;lidt	[idt_ptr]
+
+	jmp	SELECTOR_KERNEL_CS:labelJump
+labelJump:
+	;xor	eax, eax
+	;mov	ax, SELECTOR_TSS
+	;ltr	ax
+	;sti
 	pop eax
 	iret
 

@@ -18,11 +18,9 @@
 #include "../include/elf32.h"
 
 
-extern void funCallTimeInt();
-
-PUBLIC void SetNewProcEx(u32 uAddrStart, int pid);
 PUBLIC void StartShell();
 
+void *kmalloc(unsigned int len);
 
 /*======================================================================*
                             kernel_main
@@ -30,12 +28,13 @@ PUBLIC void StartShell();
 PUBLIC int kernel_main()
 {
 
+
     disp_str("-----\"kernel_main\" begins-----\n");
 
 
 
 	struct task* p_task;
-	struct proc* p_proc= proc_table;
+	struct proc* p_proc;
 	char* p_task_stack = task_stack + STACK_SIZE_TOTAL;
 	u16   selector_ldt = SELECTOR_LDT_FIRST;
         u8    privilege;
@@ -44,25 +43,38 @@ PUBLIC int kernel_main()
 	int   i;
 	int   prio;
 	for (i = 0; i < NR_TASKS+NR_PROCS; i++) {
+			//printf("i:%d\n",i);
+			p_proc = &proc_table_task[i];// = (struct proc*)kmalloc(sizeof(struct proc));
+			/*
+			memset(p_proc, 0, sizeof(struct proc));
+			p_proc->ldt_sel = SELECTOR_LDT_FIRST + (i << 3);
+			init_desc(&gdt[INDEX_LDT_FIRST + i],
+						  makelinear(SELECTOR_KERNEL_DS, p_proc->ldts),
+						  LDT_SIZE * sizeof(struct descriptor) - 1,
+						  DA_LDT);
+			*/
+
+
             if( i >= NR_TASKS + NR_NATIVE_PROCS)
             {
-                    proc_table[i].p_flags = FREE_SLOT;
+                    //proc_table[i]->p_flags = FREE_SLOT;
                     continue;
             }
+            proc_table[i] = p_proc;
 
 	        if (i < NR_TASKS) {     /* 任务 */
                         p_task    = task_table + i;
                         privilege = PRIVILEGE_TASK;
                         rpl       = RPL_TASK;
                         eflags    = 0x1202; /* IF=1, IOPL=1, bit 2 is always 1 */
-			prio      = 2;
+			prio      = 1;
                 }
                 else {                  /* 用户进程 */
                         p_task    = user_proc_table + (i - NR_TASKS);
                         privilege = PRIVILEGE_USER;
                         rpl       = RPL_USER;
                         eflags    = 0x202; /* IF=1, bit 2 is always 1 */
-			prio      = 2;
+			prio      = 1;
                 }
 
 		strcpy(p_proc->name, p_task->name);	/* name of the process */
@@ -119,23 +131,25 @@ PUBLIC int kernel_main()
 		p_proc->pageDirBase = PAGE_DIR_BASE;
 
 		p_task_stack -= p_task->stacksize;
-		p_proc++;
+		//p_proc++;
 		p_task++;
 		selector_ldt += 1 << 3;
 	}
 
         //proc_table[USER_INIT].nr_tty = 3;
 
+
 	k_reenter = 0;
 	ticks = 0;
 
-	p_proc_ready	= proc_table;
+	p_proc_ready = proc_table[0];
+
 
 	init_clock();
+
     init_keyboard();
 
-
-
+    disp_str("-----\"kernel_main\" finished-----\n");
 	restart();
 
 	while(1){}
@@ -153,15 +167,6 @@ PUBLIC int get_ticks()
 	return msg.RETVAL;
 }
 
-PUBLIC int fork()
-{
-    MESSAGE msg;
-    msg.type = FORK;
-    send_recv(BOTH, TASK_MM, &msg);
-    assert(msg.type == SYSCALL_RET);
-    assert(msg.RETVAL == 0);
-    return msg.PID;
-}
 PUBLIC int wait(int * status)
 {
     MESSAGE msg;
@@ -188,8 +193,10 @@ void Shell()
 {
 	MESSAGE msg;
 
+
 	while (1)
 	{
+
 		printf("$:");
 		send_recv(BOTH, TASK_TTY, &msg);
 		if (msg.type == TTY_ENTER)
@@ -200,7 +207,7 @@ void Shell()
 					|| strcmp(pFileName, "TESTCALL") == 0
 					|| strcmp(pFileName, "ECHO") == 0)
 			{
-				char szFileName[512] =
+				char szFileName[128] =
 				{ 0 };
 
 				memcpy(szFileName, pFileName, strlen(pFileName));
@@ -265,12 +272,9 @@ void TestC()
 
 
     printf("TESTFILE READ END!\n");
-    //printf((char*)(addrStart + 0x1040));
-    //SetNewProcEx(addrStart, 9);
-	/* assert(0); */
+
 	while(1){
 		//printf("C1");
-		//funCallTimeInt();
 		//printf("C2");
 		//milli_delay(200);
 	}
@@ -281,7 +285,7 @@ PRIVATE int getNewProcId()
     int i ;
     for(i = NR_TASKS + NR_NATIVE_PROCS; i < NR_TASKS + NR_PROCS; ++i)
     {
-        if(proc_table[i].p_flags == FREE_SLOT)
+        if(proc_table[i] == 0)
             return i;
     }
     return -1;
@@ -303,8 +307,8 @@ PUBLIC void StartShell()
     rpl       = RPL_USER;
     eflags    = 0x202; /* IF=1, bit 2 is always 1 */
     prio      = 2;
-    p_proc = &proc_table[pid];
-    strcpy(proc_table[pid].name, "SHELL");	/* name of the process */
+    p_proc = proc_table[pid] = &proc_table_task[pid];//(struct proc*)kmalloc(sizeof(struct proc));
+    strcpy(p_proc->name, "SHELL");	/* name of the process */
     p_proc->p_parent = NO_TASK;
 		//p_proc->pid = i;			/* pid */
 

@@ -36,7 +36,7 @@ PRIVATE	void	hd_identify		(int drive);
 PRIVATE void	print_identify_info	(u16* hdinfo);
 
 PRIVATE	u8		hd_status;
-PRIVATE	u8		hdbuf[SECTOR_SIZE * 2];
+u8		hdbuf[SECTOR_SIZE * 2] = {1};
 PRIVATE	struct hd_info	hd_info[1];
 
 #define	DRV_OF_DEV(dev) (dev <= MAX_PRIM ? \
@@ -53,7 +53,7 @@ PRIVATE	struct hd_info	hd_info[1];
 PUBLIC void task_hd()
 {
 	MESSAGE msg;
-
+	//while(1);
 	init_hd();
 
 	while (1) {

@@ -33,10 +33,13 @@ PUBLIC void schedule()
 {
 	struct proc*	p;
 	int		greatest_ticks = 0;
+	int 	i;
 
 	while (!greatest_ticks) {
-		for (p = &FIRST_PROC; p <= &LAST_PROC; p++) {
-
+		for (i = 0; i < NR_ALL_PROCS; ++i) {
+			p = proc_table[i];
+			if(p == 0)
+				continue;
 			if (p->p_flags == 0) {
 				if (p->ticks > greatest_ticks) {
 					greatest_ticks = p->ticks;
@@ -50,9 +53,16 @@ PUBLIC void schedule()
 		}
 
 		if (!greatest_ticks)
-			for (p = &FIRST_PROC; p <= &LAST_PROC; p++)
-				if (p->p_flags == 0)
+		{
+			for (i = 0; i < NR_ALL_PROCS; ++i)
+			{
+				p = proc_table[i];
+				if (p && p->p_flags == 0)
+				{
 					p->ticks = p->priority;
+				}
+			}
+		}
 	}
 }
 
@@ -148,6 +158,16 @@ PUBLIC int send_recv(int function, int src_dest, MESSAGE* msg)
 	return ret;
 }
 
+int proc2pid(struct proc* p)
+{
+	int i;
+	for(i = 0; i < NR_ALL_PROCS; i++)
+	{
+		if(p == proc_table[i])
+			return i;
+	}
+}
+
 /*****************************************************************************
  *				  ldt_seg_linear
  *****************************************************************************/
@@ -180,7 +200,7 @@ PUBLIC int ldt_seg_linear(struct proc* p, int idx)
  *****************************************************************************/
 PUBLIC void* va2la(int pid, void* va)
 {
-	struct proc* p = &proc_table[pid];
+	struct proc* p = proc_table[pid];
 
 	u32 seg_base = ldt_seg_linear(p, INDEX_LDT_RW);
 	u32 la = seg_base + (u32)va;
@@ -262,23 +282,23 @@ PRIVATE void unblock(struct proc* p)
  *****************************************************************************/
 PRIVATE int deadlock(int src, int dest)
 {
-	struct proc* p = proc_table + dest;
+	struct proc* p = proc_table[dest];
 	while (1) {
 		if (p->p_flags & SENDING) {
 			if (p->p_sendto == src) {
 				/* print the chain */
-				p = proc_table + dest;
+				p = proc_table[dest];
 				printl("=_=%s", p->name);
 				do {
 					assert(p->p_msg);
-					p = proc_table + p->p_sendto;
+					p = proc_table[p->p_sendto];
 					printl("->%s", p->name);
-				} while (p != proc_table + src);
+				} while (p != proc_table[src]);
 				printl("=_=");
 
 				return 1;
 			}
-			p = proc_table + p->p_sendto;
+			p = proc_table[p->p_sendto];
 		}
 		else {
 			break;
@@ -304,7 +324,7 @@ PRIVATE int deadlock(int src, int dest)
 PRIVATE int msg_send(struct proc* current, int dest, MESSAGE* m)
 {
 	struct proc* sender = current;
-	struct proc* p_dest = proc_table + dest; /* proc dest */
+	struct proc* p_dest = proc_table[dest]; /* proc dest */
 
 	assert(proc2pid(sender) != dest);
 
@@ -446,7 +466,7 @@ PRIVATE int msg_receive(struct proc* current, int src, MESSAGE* m)
 		/* p_who_wanna_recv wants to receive a message from
 		 * a certain proc: src.
 		 */
-		p_from = &proc_table[src];
+		p_from = proc_table[src];
 
 		if ((p_from->p_flags & SENDING) &&
 		    (p_from->p_sendto == proc2pid(p_who_wanna_recv))) {
@@ -518,17 +538,27 @@ PRIVATE int msg_receive(struct proc* current, int src, MESSAGE* m)
 		/* Set p_flags so that p_who_wanna_recv will not
 		 * be scheduled until it is unblocked.
 		 */
+		//printf("start:%d\n",p_who_wanna_recv->p_flags);
+
 		p_who_wanna_recv->p_flags |= RECEIVING;
+
+		//printf("end:%d\n",p_who_wanna_recv->p_flags);
 
 		p_who_wanna_recv->p_msg = m;
 		p_who_wanna_recv->p_recvfrom = src;
 		block(p_who_wanna_recv);
+
+		if(p_who_wanna_recv->p_flags != RECEIVING){
+			//panic("panic:%s,%d\n",p_who_wanna_recv->name,p_who_wanna_recv->p_flags);
+		}
 
 		assert(p_who_wanna_recv->p_flags == RECEIVING);
 		assert(p_who_wanna_recv->p_msg != 0);
 		assert(p_who_wanna_recv->p_recvfrom != NO_TASK);
 		assert(p_who_wanna_recv->p_sendto == NO_TASK);
 		assert(p_who_wanna_recv->has_int_msg == 0);
+
+
 	}
 
 	return 0;
@@ -544,7 +574,7 @@ PRIVATE int msg_receive(struct proc* current, int src, MESSAGE* m)
  *****************************************************************************/
 PUBLIC void inform_int(int task_nr)
 {
-	struct proc* p = proc_table + task_nr;
+	struct proc* p = proc_table[task_nr];
 
 	if ((p->p_flags & RECEIVING) && /* dest is waiting for the msg */
 	    ((p->p_recvfrom == INTERRUPT) || (p->p_recvfrom == ANY))) {
@@ -583,7 +613,7 @@ PUBLIC void dump_proc(struct proc* p)
 	out_byte(CRTC_ADDR_REG, START_ADDR_L);
 	out_byte(CRTC_DATA_REG, 0);
 
-	sprintf(info, "byte dump of proc_table[%d]:\n", p - proc_table); disp_color_str(info, text_color);
+	sprintf(info, "byte dump of proc_table[%d]:\n", proc2pid(p)); disp_color_str(info, text_color);
 	for (i = 0; i < dump_len; i++) {
 		sprintf(info, "%x.", ((unsigned char *)p)[i]);
 		disp_color_str(info, text_color);
@@ -621,7 +651,7 @@ PUBLIC void dump_msg(const char * title, MESSAGE* m)
 	       title,
 	       (int)m,
 	       packed ? "" : "\n        ",
-	       proc_table[m->source].name,
+	       proc_table[m->source]->name,
 	       m->source,
 	       packed ? " " : "\n        ",
 	       m->type,

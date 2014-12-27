@@ -179,17 +179,21 @@ PUBLIC void init_prot()
 
 	/* 填充 GDT 中进程的 LDT 的描述符 */
 	/* Fill the LDT descriptors of each proc in GDT  */
-	int i;
-	for (i = 0; i < NR_TASKS + NR_PROCS; i++) {
-		memset(&proc_table[i], 0, sizeof(struct proc));
 
-		proc_table[i].ldt_sel = SELECTOR_LDT_FIRST + (i << 3);
+
+	int i;
+	for (i = 0; i < NR_TASKS+NR_PROCS; i++) {
+
+		memset(&proc_table_task[i], 0, sizeof(struct proc));
+
+		proc_table_task[i].ldt_sel = SELECTOR_LDT_FIRST + (i << 3);
 		assert(INDEX_LDT_FIRST + i < GDT_SIZE);
 		init_desc(&gdt[INDEX_LDT_FIRST + i],
-			  makelinear(SELECTOR_KERNEL_DS, proc_table[i].ldts),
+			  makelinear(SELECTOR_KERNEL_DS, proc_table_task[i].ldts),
 			  LDT_SIZE * sizeof(struct descriptor) - 1,
 			  DA_LDT);
 	}
+
 }
 
 

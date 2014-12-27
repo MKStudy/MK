@@ -50,7 +50,9 @@ PUBLIC void keyboard_handler(int irq)
 			kb_in.p_head = kb_in.buf;
 		}
 		kb_in.count++;
+
 	}
+
 }
 
 
@@ -91,6 +93,7 @@ PUBLIC void keyboard_read(TTY* p_tty)
 	u32*	keyrow;	/* 指向 keymap[] 的某一行 */
 
 	if(kb_in.count > 0){
+
 		code_with_E0 = 0;
 
 		scan_code = get_byte_from_kbuf();

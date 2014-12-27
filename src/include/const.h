@@ -17,6 +17,12 @@
 //分页
 #define	PAGE_DIR_BASE	0x500000	//5M
 
+#define PG_P			1	//; 页存在属性位
+#define PG_RWR			0	//; R/W 属性位值, 读/执行
+#define PG_RWW			2	//; R/W 属性位值, 读/写/执行
+#define PG_USS			0	//; U/S 属性位值, 系统级
+#define PG_USU			4	//; U/S 属性位值, 用户级
+
 
 /* max() & min() */
 #define	max(a,b)	((a) > (b) ? (a) : (b))

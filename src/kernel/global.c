@@ -18,7 +18,8 @@
 #include "../include/proto.h"
 
 
-PUBLIC	struct proc	proc_table[NR_TASKS + NR_PROCS];
+PUBLIC	struct proc proc_table_task[NR_ALL_PROCS] = {0};
+PUBLIC	struct proc* proc_table[NR_ALL_PROCS] = {0};
 
 PUBLIC	struct task	task_table[NR_TASKS] = {
 	{task_tty, STACK_SIZE_TTY, "TTY"},

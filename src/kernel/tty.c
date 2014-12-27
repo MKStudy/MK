@@ -36,19 +36,24 @@ PUBLIC void task_tty()
 	TTY*	p_tty;
 	int src;
 	int f_WaitSend = 0;
+	int i = 0;
+
+	//while(1);
 	/* panic("in TTY"); */
 	/* assert(0); */
 
-	init_keyboard();
+	//init_keyboard();
 
 	for (p_tty=TTY_FIRST;p_tty<TTY_END;p_tty++) {
 		init_tty(p_tty);
 	}
 	select_console(0);
+
+	//printf("tty ok!\n");
 	while (1) {
+
 		for (p_tty=TTY_FIRST;p_tty<TTY_END;p_tty++) {
 			tty_do_read(p_tty);
-
 			if (p_tty->inbuf_count)
 			{
 					if(*(p_tty->p_inbuf_tail) == '\n')
@@ -74,6 +79,7 @@ PUBLIC void task_tty()
 						szTTYBuffer[nTTYBufferIndex++] = ch;
 					}
 				}
+
 		}
 
 		if(f_WaitSend == 0)
@@ -145,7 +151,7 @@ PUBLIC void in_process(TTY* p_tty, u32 key)
 			else {
 				if (raw_code == F12) {
 					disable_int();
-					dump_proc(proc_table + 4);
+					dump_proc(proc_table[4]);
 					for(;;);
 				}
 			}
@@ -168,6 +174,7 @@ PRIVATE void put_key(TTY* p_tty, u32 key)
 			p_tty->p_inbuf_head = p_tty->in_buf;
 		}
 		p_tty->inbuf_count++;
+
 	}
 }
 
@@ -178,6 +185,7 @@ PRIVATE void put_key(TTY* p_tty, u32 key)
 PRIVATE void tty_do_read(TTY* p_tty)
 {
 	if (is_current_console(p_tty->p_console)) {
+
 		keyboard_read(p_tty);
 	}
 }
@@ -253,7 +261,7 @@ PUBLIC int sys_printx(int _unused1, int _unused2, char* s, struct proc* p_proc)
 	 * does.
 	 */
 	if ((*p == MAG_CH_PANIC) ||
-	    (*p == MAG_CH_ASSERT && p_proc_ready < &proc_table[NR_TASKS])) {
+	    (*p == MAG_CH_ASSERT && proc2pid(p_proc_ready) < NR_TASKS)) {
 		disable_int();
 		char * v = (char*)V_MEM_BASE;
 		const char * q = p + 1; /* +1: skip the magic char */

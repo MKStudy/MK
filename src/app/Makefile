@@ -1,7 +1,7 @@
 ASM	= nasm
 LD = ld
 CC = gcc
-CFLAGS = -c -m32 -g  -fno-builtin
+CFLAGS = -g -c -m32  -fno-builtin
 TARGET = ECHO
 OBJS = echo.o \
 	   ../lib/start.o \

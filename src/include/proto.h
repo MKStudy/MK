@@ -5,7 +5,8 @@
                                                     Forrest Yu, 2005
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
-/* klib.asm */
+/* kliba.asm */
+unsigned int memtest_sub(unsigned int start, unsigned int end);
 PUBLIC void setCR3(u32 pageDirBase);
 PUBLIC void	out_byte(u16 port, u8 value);
 PUBLIC u8	in_byte(u16 port);
@@ -17,6 +18,8 @@ PUBLIC void	disable_int();
 PUBLIC void	enable_int();
 PUBLIC void port_read(u16 port, void* buf, int n);
 PUBLIC void port_write(u16 port, void* buf, int n);
+/* string.c */
+int strcmp_s(const char* s1, const char* s2,unsigned int s);
 
 /* string.asm */
 PUBLIC char*	strcpy(char* dst, const char* src);

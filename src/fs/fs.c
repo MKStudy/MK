@@ -39,12 +39,12 @@ struct ROOT_DIR{
 
 PRIVATE FS_FILE fs_file_table[MAX_FS_FILES];
 
-PRIVATE u32 offsetSectorCount;         //分区开始处距硬盘开始的扇区数
-PRIVATE u32  countOfPartition;            //分区总扇区数
+PRIVATE u32 offsetSectorCount;         		//分区开始处距硬盘开始的扇区数
+PRIVATE u32  countOfPartition;            	//分区总扇区数
 PRIVATE u16   bytesPerSector;               //每扇区字节数
 PRIVATE u8     sectorsPerCluster;           //每簇的扇区数
 PRIVATE u16   sectorsReserved;              //FAT1相对于分区起始的扇区数
-PRIVATE u8      fatCount;                               //FAT个数
+PRIVATE u8      fatCount;                   //FAT个数
 PRIVATE u32     sectorsOfFat;                    //每个FAT占用的扇区数
 PRIVATE u32     nrClusterOfRootDir;         //根目录所在的第一个簇的簇号
 
@@ -54,14 +54,17 @@ PRIVATE u32     nrClusterOfRootDir;         //根目录所在的第一个簇的�
 PUBLIC void task_fs()
 {
 	MESSAGE fs_msg;
-	init_fs();
 	struct proc* pcaller;
+
+	//while(1);
+	init_fs();
+
 	while(1){
 		send_recv(RECEIVE, ANY, &fs_msg);
 
 		int msgtype = fs_msg.type;
 		int src = fs_msg.source;
-		pcaller = &proc_table[src];
+		pcaller = proc_table[src];
 
 		switch (msgtype) {
 		case OPEN:
@@ -154,7 +157,7 @@ PRIVATE void do_open(MESSAGE* pMsg)
 			else
 				break;
 		}
-		if(!strcmp(pDir->szFileName, szFileName))
+		if(!strcmp_s(pDir->szFileName, szFileName,8))
 		{
 			break;
 		}
@@ -207,19 +210,20 @@ PRIVATE void do_read(MESSAGE* pMsg)
 
 	}
 
-	while (!isFatEnd(nCurFat, &nNextFat))
+	do
 	{
-
 		size -= ReadFileToMemory(nCurFat, szDesBuffer);
-
-		nCurFat = nNextFat;
 		szDesBuffer += SECTOR_SIZE;
-		if (size <= 0)
+		if(isFatEnd(nCurFat, &nNextFat) || size <= 0)
 			break;
-	}
+		else
+			nCurFat = nNextFat;
+	}while (1);
 
 	if (nByteRest)
 		memcpy(szOrg, szOrg + nByteRest, pMsg->u.m3.m3i1);
+
+
 }
 PRIVATE void read_file(MESSAGE* pMsg)
 {

@@ -26,11 +26,14 @@ EXTERN	int	nr_current_console;
 EXTERN	struct tss	tss;
 EXTERN	struct proc*	p_proc_ready;
 
-extern	char		task_stack[];
-extern	struct proc	proc_table[];
-extern  struct task	task_table[];
-extern  struct task	user_proc_table[];
-extern	irq_handler	irq_table[];
-extern	TTY		tty_table[];
-extern  CONSOLE		console_table[];
+extern	char			task_stack[];
+extern	struct proc*	proc_table[];
+extern  struct proc		proc_table_task[];
+extern  struct task		task_table[];
+
+
+extern  struct task		user_proc_table[];
+extern	irq_handler		irq_table[];
+extern	TTY				tty_table[];
+extern  CONSOLE			console_table[];
 

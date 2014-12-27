@@ -30,6 +30,7 @@
 PUBLIC void task_sys()
 {
 	MESSAGE msg;
+	//while(1);
 	while (1) {
 		send_recv(RECEIVE, ANY, &msg);
 		int src = msg.source;
