@@ -74,6 +74,7 @@ PUBLIC void task_sys();
 PUBLIC void task_hd();
 PUBLIC void task_fs();
 PUBLIC void task_mm();
+PUBLIC void task_init();
 PUBLIC void hd_handler(int irq);
 
 /* console.c */

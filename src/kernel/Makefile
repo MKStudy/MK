@@ -4,32 +4,42 @@ CFLAGS = -fno-stack-protector -g -c -m32  -fno-builtin -o
 LD = ld
 
 OBJS=kernelex.o start.o global.o kliba.o stringAsm.o protect.o i8259.o klib.o main.o clock.o syscall.o proc.o \
-	keyboard.o tty.o printf.o misc.o console.o systask.o vsprintf.o hd.o fs.o mm.o string.o kmalloc.o
+	keyboard.o tty.o printf.o misc.o console.o systask.o vsprintf.o hd.o fs.o mm.o string.o kmalloc.o memory.o \
+	init.o shell.o
 
 all : kernelex.elf
 
 kernelex.elf : $(OBJS)
 	$(LD) -Ttext 0xA00000  -m elf_i386 -o ./kernelex.elf $(OBJS)
 
+memory.o : ../lib/memory.c
+	$(CC) $(CFLAGS) $@ $<
+	
 kmalloc.o : ../lib/kmalloc.c
 	$(CC) $(CFLAGS) $@ $<
 
 string.o : ./string.c
 	$(CC) $(CFLAGS) $@ $<
 
-hd.o : ../hd/hd.c
+shell.o : ../services/shell.c
+	$(CC) $(CFLAGS) $@ $<
+	
+init.o : ../services/init.c
+	$(CC) $(CFLAGS) $@ $<
+	
+hd.o : ../services/hd.c
 	$(CC) $(CFLAGS) $@ $<
 
-fs.o : ../fs/fs.c
+fs.o : ../services/fs.c
 	$(CC) $(CFLAGS) $@ $<
 
-mm.o : ../mm/mm.c
+mm.o : ../services/mm.c
 	$(CC) $(CFLAGS) $@ $<
 
 vsprintf.o : ./vsprintf.c
 	$(CC) $(CFLAGS) $@ $<
 
-systask.o : ./systask.c
+systask.o : ../services/systask.c
 	$(CC) $(CFLAGS) $@ $<
 
 console.o : ./console.c
@@ -41,7 +51,7 @@ misc.o : ./misc.c
 printf.o : ./printf.c
 	$(CC) $(CFLAGS) $@ $<
 
-tty.o : ./tty.c
+tty.o : ../services/tty.c
 	$(CC) $(CFLAGS) $@ $<
 
 keyboard.o : ./keyboard.c

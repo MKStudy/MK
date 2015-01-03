@@ -7,6 +7,8 @@ int strcmp_s(const char* s1, const char* s2,unsigned int s)
     {
     	if(*p1 != *p2)
     		 return (*p1 - *p2);
+    	else if(*p1 == 0)
+    		break;
     	p1++;
     	p2++;
     }

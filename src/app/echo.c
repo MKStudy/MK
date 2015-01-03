@@ -4,7 +4,7 @@
  *  Created on: 2014年12月11日
  *      Author: zxb
  */
-//#include "../include/proto.h"
+
 int	printx(char* str);
 char szText[] = "global data!\n";
 int main(int argc, char* argv[])

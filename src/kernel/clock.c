@@ -19,7 +19,8 @@
  clock_handler
  *======================================================================*/
 PUBLIC void clock_handler(int irq) {
-	char buffer[10];
+
+
 	ticks++;
 	p_proc_ready->ticks--;
 
@@ -32,6 +33,8 @@ PUBLIC void clock_handler(int irq) {
 	}
 
 	schedule();
+
+
 
 }
 

@@ -9,6 +9,9 @@
 %include "sconst.inc"
 
 ; 导入函数
+extern SetKernelCR3
+extern SetProcCR3
+extern setupPage
 extern	cstart
 extern	kernel_main
 extern	exception_handler
@@ -19,6 +22,7 @@ extern	delay
 extern	irq_table
 
 ; 导入全局变量
+
 extern	gdt_ptr
 extern	idt_ptr
 extern	p_proc_ready
@@ -26,6 +30,8 @@ extern	tss
 extern	disp_pos
 extern	k_reenter
 extern	sys_call_table
+extern curProcDirPage
+extern eaxTemp
 
 bits 32
 
@@ -39,6 +45,7 @@ StackTop:		; 栈顶
 [section .text]	; 代码在此
 
 global _start	; 导出 _start
+
 
 global restart
 global sys_call
@@ -94,8 +101,6 @@ _start:
 
 	jmp	SELECTOR_KERNEL_CS:csinit
 csinit:		; “这个跳转指令强制使用刚刚初始化的结构”——<<OS:D&I 2nd>> P90.
-
-
 	xor	eax, eax
 	mov	ax, SELECTOR_TSS
 	ltr	ax
@@ -105,22 +110,29 @@ csinit:		; “这个跳转指令强制使用刚刚初始化的结构”——<<O
 
 	jmp	kernel_main
 
-	lgdt	[gdt_ptr]
+	;lgdt	[gdt_ptr]
 	ret
 
 ; 中断和异常 -- 硬件中断
 ; ---------------------------------
 %macro	hwint_master	1
 	call	save
+	call SetKernelCR3
+
 	in	al, INT_M_CTLMASK	; `.
 	or	al, (1 << %1)		;  | 屏蔽当前中断
 	out	INT_M_CTLMASK, al	; /
 	mov	al, EOI			; `. 置EOI位
 	out	INT_M_CTL, al		; /
 	sti	; CPU在响应中断的过程中会自动关中断，这句之后就允许响应新的中断
+
+
 	push	%1			; `.
 	call	[irq_table + 4 * %1]	;  | 中断处理程序
 	pop	ecx			; /
+
+
+
 	cli
 	in	al, INT_M_CTLMASK	; `.
 	and	al, ~(1 << %1)		;  | 恢复接受当前中断
@@ -164,6 +176,7 @@ hwint07:		; Interrupt routine for irq 7 (printer)
 ; ---------------------------------
 %macro	hwint_slave	1
 	call	save
+	call SetKernelCR3
 	in	al, INT_S_CTLMASK	; `.
 	or	al, (1 << (%1 - 8))	;  | 屏蔽当前中断
 	out	INT_S_CTLMASK, al	; /
@@ -172,9 +185,13 @@ hwint07:		; Interrupt routine for irq 7 (printer)
 	nop				; `. 置EOI位(slave)
 	out	INT_S_CTL, al		; /  一定注意：slave和master都要置EOI
 	sti	; CPU在响应中断的过程中会自动关中断，这句之后就允许响应新的中断
+
+
 	push	%1			; `.
 	call	[irq_table + 4 * %1]	;  | 中断处理程序
 	pop	ecx			; /
+
+
 	cli
 	in	al, INT_S_CTLMASK	; `.
 	and	al, ~(1 << (%1 - 8))	;  | 恢复接受当前中断
@@ -316,6 +333,8 @@ save:
         push    restart_reenter             ;  push restart_reenter
         jmp     [esi + RETADR - P_STACKBASE];  return;
                                             ;}
+
+
 ;调用时钟中断
 funCallTimeInt:
 	int 0x80;
@@ -328,15 +347,6 @@ sys_call_ex:
 	mov al,'X'
 	mov [gs:((80*15+72)*2)],ax
 
-	;lgdt	[gdt_ptr]
-	;lidt	[idt_ptr]
-
-	jmp	SELECTOR_KERNEL_CS:labelJump
-labelJump:
-	;xor	eax, eax
-	;mov	ax, SELECTOR_TSS
-	;ltr	ax
-	;sti
 	pop eax
 	iret
 
@@ -345,40 +355,64 @@ labelJump:
 ;                                 sys_call
 ; =============================================================================
 sys_call:
-        call    save
+		;中断门中断处理，此时esp为tss.esp0,即为进程栈，调用save后变为内核栈
+		;
 
-        sti
+    call    save
+	call SetKernelCR3
+
+
+    sti
 	push	esi
+
+
 
 	push	dword [p_proc_ready]
 	push	edx
 	push	ecx
 	push	ebx
-        call    [sys_call_table + eax * 4]
+    call    [sys_call_table + eax * 4]
 	add	esp, 4 * 4
 
 	pop	esi
-        mov     [esi + EAXREG - P_STACKBASE], eax
-        cli
+    mov     [esi + EAXREG - P_STACKBASE], eax
+    cli
 
-        ret
+
+    ret
 
 
 ; ====================================================================================
 ;                                   restart
 ; ====================================================================================
 restart:
+	call SetProcCR3
+
+
 	mov	esp, [p_proc_ready]
-	lldt	[esp + P_LDT_SEL]
-	lea	eax, [esp + P_STACKTOP]
-	mov	dword [tss + TSS3_S_SP0], eax
+	lldt	[esp + P_LDT_SEL]				;加载进程的局部描述符
+	lea	eax, [esp + P_STACKTOP]				;将有效的地址传送到指定的寄存器
+	mov	dword [tss + TSS3_S_SP0], eax		;让tss中的esp0指向p_proc_ready中的stackframe，以便进程切换时，将进程上下文保存到stackframe中
+
+
 restart_reenter:
-	dec	dword [k_reenter]
-	pop	gs
+
+
+
+	dec	dword [k_reenter]					;减少计数，标识退出内核态
+
+
+
+
+	pop	gs									;将新进程的上下文加载到各个寄存器
 	pop	fs
 	pop	es
 	pop	ds
 	popad
 	add	esp, 4
-	iretd
+
+	iretd									;退出内核态
+
+
+
 

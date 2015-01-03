@@ -9,6 +9,8 @@
 #define	_ORANGES_TYPE_H_
 
 
+
+
 typedef	unsigned long long	u64;
 typedef	unsigned int		u32;
 typedef	unsigned short		u16;
@@ -58,6 +60,17 @@ typedef struct {
 		struct mess3 m3;
 	} u;
 } MESSAGE;
+
+#define MEMMAN_FREES 4090
+struct FREEINFO {
+	unsigned int addr, size;
+};
+struct MEMMAN {
+	int frees, maxfrees, lostsize, losts;
+	struct FREEINFO free[MEMMAN_FREES];
+};
+
+
 /* i have no idea of where to put this struct, so i put it here */
 struct boot_params {
 	int		mem_size;	/* memory size */
@@ -71,6 +84,8 @@ struct MM
 	u32 addrStart;
 	u32 addrSize;
 };
+
+
 
 
 #endif /* _ORANGES_TYPE_H_ */

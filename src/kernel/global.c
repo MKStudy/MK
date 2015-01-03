@@ -26,16 +26,18 @@ PUBLIC	struct task	task_table[NR_TASKS] = {
 	{task_sys, STACK_SIZE_SYS, "SYS"},
 	{task_hd, STACK_SIZE_HD, "HD"},
 	{task_fs, STACK_SIZE_FS, "FS"},
-	{task_mm, STACK_SIZE_MM, "MM"}
+	{task_mm, STACK_SIZE_MM, "MM"},
+	{task_init, STACK_SIZE_INIT, "INIT"}
 	};
-
+/*
 PUBLIC	struct task	user_proc_table[NR_PROCS] = {
 	{Init, STACK_SIZE_INIT, "INIT"}/*,
 	{TestA, STACK_SIZE_TESTA, "TestA"},
 	{TestB, STACK_SIZE_TESTB, "TestB"},
-	{TestC, STACK_SIZE_TESTC, "TestC"}*/};
+	{TestC, STACK_SIZE_TESTC, "TestC"}};
+	*/
 
-PUBLIC	char		task_stack[STACK_SIZE_TOTAL];
+PUBLIC	char task_stack[STACK_SIZE_TOTAL];
 
 PUBLIC	TTY		tty_table[NR_CONSOLES];
 PUBLIC	CONSOLE		console_table[NR_CONSOLES];

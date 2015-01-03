@@ -13,7 +13,7 @@ OBJS = echo.o \
 all:$(TARGET)
 
 $(TARGET) : $(OBJS)
-	$(LD) -Ttext 0x1400000 -m elf_i386 -o $(TARGET) $(OBJS)
+	$(LD) -Ttext 0x2800000 -m elf_i386 -o $(TARGET) $(OBJS)
 
 echo.o : echo.c
 	$(CC) $(CFLAGS) -o $@ $<

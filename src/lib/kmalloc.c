@@ -64,6 +64,9 @@ void init_bucket_desc()
 	int	i;
 
 	first = bdesc = (struct bucket_desc *) get_free_page(1);
+
+	//printf("first:0x%x\n",first);
+
 	if (!bdesc)
 		panic("Out of memory in init_bucket_desc()");
 	for (i = PAGE_SIZE/sizeof(struct bucket_desc); i > 1; i--) {
@@ -213,7 +216,7 @@ found:
 		bdesc->next = free_bucket_desc;
 		free_bucket_desc = bdesc;
 
-		printf("F%x,%x\n",(unsigned int)&free_bucket_desc, (unsigned int)free_bucket_desc);
+		//printf("F%x,%x\n",(unsigned int)&free_bucket_desc, (unsigned int)free_bucket_desc);
 	}
 	//sti();
 	enable_int();

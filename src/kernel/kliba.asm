@@ -27,7 +27,8 @@ global	port_read
 global	port_write
 global 	writeVRAM
 global setCR3
-
+global asmUpdateCR3
+global asmGetCR3
 global updateGDT
 updateGDT:
 int 0x80
@@ -71,6 +72,38 @@ mts_fin:
 	pop		edi
 	ret
 
+asmGetCR3:			;asmGetCR3(u32* addr)
+	push ebp
+	mov ebp,esp
+	push ebx
+	push eax
+
+	mov ebx,[ebp+8]
+	mov eax,cr3
+	mov [ebx],eax
+
+	pop eax
+	pop ebx
+	pop ebp
+	ret
+
+asmUpdateCR3:		;asmUpdateCR3(u32* addr,u32 pageDirNew)
+	push ebp
+	mov ebp,esp
+	push ebx
+	push eax
+
+	mov ebx,[ebp+8]
+	mov eax,cr3
+	mov [ebx],eax
+	push dword [ebp+12]
+	call setCR3
+	add esp,4
+
+	pop eax
+	pop ebx
+	pop ebp
+	ret
 
 
 setCR3:

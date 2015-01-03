@@ -29,26 +29,24 @@ PRIVATE int  deadlock(int src, int dest);
  * <Ring 0> Choose one proc to run.
  *
  *****************************************************************************/
+void* va2py(struct proc* p, void* va);
 PUBLIC void schedule()
 {
-	struct proc*	p;
-	int		greatest_ticks = 0;
-	int 	i;
+	struct proc* p;
+	int greatest_ticks = 0;
+	int i;
 
-	while (!greatest_ticks) {
-		for (i = 0; i < NR_ALL_PROCS; ++i) {
+	while (!greatest_ticks)
+	{
+		for (i = 0; i < NR_ALL_PROCS; ++i)
+		{
 			p = proc_table[i];
-			if(p == 0)
+			if (p == 0)
 				continue;
-			if (p->p_flags == 0) {
-				if (p->ticks > greatest_ticks) {
-					greatest_ticks = p->ticks;
-					if(p != p_proc_ready)
-					{
-						p_proc_ready = p;
-						setCR3(p->pageDirBase);
-					}
-				}
+			if (p->p_flags == 0 && p->ticks > greatest_ticks)
+			{
+				greatest_ticks = p->ticks;
+				p_proc_ready = p;
 			}
 		}
 
@@ -63,6 +61,7 @@ PUBLIC void schedule()
 				}
 			}
 		}
+
 	}
 }
 
@@ -88,7 +87,7 @@ PUBLIC int sys_sendrec(int function, int src_dest, MESSAGE* m, struct proc* p)
 
 	int ret = 0;
 	int caller = proc2pid(p);
-	MESSAGE* mla = (MESSAGE*)va2la(caller, m);
+	MESSAGE* mla = (MESSAGE*)va2py(p, (void*)m);
 	mla->source = caller;
 
 	assert(mla->source != src_dest);
@@ -101,19 +100,21 @@ PUBLIC int sys_sendrec(int function, int src_dest, MESSAGE* m, struct proc* p)
 	 */
 	if (function == SEND) {
 		ret = msg_send(p, src_dest, m);
-		if (ret != 0)
+		if (ret != 0){
 			return ret;
+		}
 	}
 	else if (function == RECEIVE) {
 		ret = msg_receive(p, src_dest, m);
 		if (ret != 0)
+		{
 			return ret;
+		}
 	}
 	else {
 		panic("{sys_sendrec} invalid function: "
 		      "%d (SEND:%d, RECEIVE:%d).", function, SEND, RECEIVE);
 	}
-
 	return 0;
 }
 
@@ -339,9 +340,11 @@ PRIVATE int msg_send(struct proc* current, int dest, MESSAGE* m)
 		assert(p_dest->p_msg);
 		assert(m);
 
-		phys_copy(va2la(dest, p_dest->p_msg),
-			  va2la(proc2pid(sender), m),
+		phys_copy(va2py(p_dest, p_dest->p_msg),
+				va2py(sender, m),
 			  sizeof(MESSAGE));
+
+
 		p_dest->p_msg = 0;
 		p_dest->p_flags &= ~RECEIVING; /* dest has received the msg */
 		p_dest->p_recvfrom = NO_TASK;
@@ -428,7 +431,7 @@ PRIVATE int msg_receive(struct proc* current, int src, MESSAGE* m)
 
 		assert(m);
 
-		phys_copy(va2la(proc2pid(p_who_wanna_recv), m), &msg,
+		phys_copy(va2py(p_who_wanna_recv, m), &msg,
 			  sizeof(MESSAGE));
 
 		p_who_wanna_recv->has_int_msg = 0;
@@ -524,8 +527,8 @@ PRIVATE int msg_receive(struct proc* current, int src, MESSAGE* m)
 		assert(p_from->p_msg);
 
 		/* copy the message */
-		phys_copy(va2la(proc2pid(p_who_wanna_recv), m),
-			  va2la(proc2pid(p_from), p_from->p_msg),
+		phys_copy(va2py(p_who_wanna_recv, m),
+			  va2py(p_from, p_from->p_msg),
 			  sizeof(MESSAGE));
 
 		p_from->p_msg = 0;
@@ -549,7 +552,8 @@ PRIVATE int msg_receive(struct proc* current, int src, MESSAGE* m)
 		block(p_who_wanna_recv);
 
 		if(p_who_wanna_recv->p_flags != RECEIVING){
-			//panic("panic:%s,%d\n",p_who_wanna_recv->name,p_who_wanna_recv->p_flags);
+			//panic("sss");
+			//panic("panic:%s,0x%x,src:%d\n",p_who_wanna_recv->name,p_who_wanna_recv,src);
 		}
 
 		assert(p_who_wanna_recv->p_flags == RECEIVING);

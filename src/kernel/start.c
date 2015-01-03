@@ -16,6 +16,7 @@
 #include "../include/global.h"
 #include "../include/proto.h"
 
+extern struct proc* p_proc_ready;
 PUBLIC void setupPage();
 /*======================================================================*
                             cstart
@@ -73,4 +74,12 @@ PUBLIC void setupPage()
 
 	setCR3(pageDirBase);
 
+}
+void SetKernelCR3()
+{
+	setCR3(0x500000);
+}
+void SetProcCR3()
+{
+	setCR3(p_proc_ready->pageDirBase);
 }
