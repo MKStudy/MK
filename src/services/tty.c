@@ -17,8 +17,12 @@
 #include "../include/keyboard.h"
 #include "../include/proto.h"
 
-#define TTY_FIRST	(tty_table)
-#define TTY_END		(tty_table + NR_CONSOLES)
+//#define TTY_FIRST	(tty_table)
+//#define TTY_END		(tty_table + NR_CONSOLES)
+PUBLIC	TTY		tty;
+PUBLIC	CONSOLE		console;
+void flush(CONSOLE* p_con);
+
 
 PRIVATE void init_tty(TTY* p_tty);
 PRIVATE void tty_do_read(TTY* p_tty);
@@ -33,65 +37,51 @@ PRIVATE int	nTTYBufferIndex = 0;
 PUBLIC void task_tty()
 {
 	MESSAGE msg;
-	TTY*	p_tty;
+	TTY* p_tty;
 	int src;
 	int f_WaitSend = 0;
 	int i = 0;
 
-	//zxb
-	//while(1);
-	/* panic("in TTY"); */
-	/* assert(0); */
+	p_tty = &tty;
+	init_tty(p_tty);
+	flush(&console);
+	//select_console(0);
 
-	//init_keyboard();
+	while (1)
+	{
 
-	for (p_tty=TTY_FIRST;p_tty<TTY_END;p_tty++) {
-		init_tty(p_tty);
-	}
-	select_console(0);
-
-	while (1) {
-		//zxb
-		//continue;
-		//printf("t");
-
-		for (p_tty=TTY_FIRST;p_tty<TTY_END;p_tty++) {
-			tty_do_read(p_tty);
-			if (p_tty->inbuf_count)
+		tty_do_read(p_tty);
+		if (p_tty->inbuf_count)
+		{
+			if (*(p_tty->p_inbuf_tail) == '\n')
 			{
-					if(*(p_tty->p_inbuf_tail) == '\n')
-					{
-						tty_do_write(p_tty);
-						szTTYBuffer[nTTYBufferIndex] = 0;
-						nTTYBufferIndex = 0;
+				tty_do_write(p_tty);
+				szTTYBuffer[nTTYBufferIndex] = 0;
+				nTTYBufferIndex = 0;
 
-						if(f_WaitSend)
-						{
-							msg.type = TTY_ENTER;
-							msg.u.m2.m2p1 = szTTYBuffer;
-							send_recv(SEND, src, &msg);
-							f_WaitSend = 0;
+				if (f_WaitSend)
+				{
+					msg.type = TTY_ENTER;
+					msg.u.m2.m2p1 = szTTYBuffer;
+					send_recv(SEND, src, &msg);
+					f_WaitSend = 0;
 
-							}
-					}
-					else
-					{
-						char ch = *(p_tty->p_inbuf_tail);
-						tty_do_write(p_tty);
-						szTTYBuffer[nTTYBufferIndex++] = ch;
-					}
 				}
-
+			}
+			else
+			{
+				char ch = *(p_tty->p_inbuf_tail);
+				tty_do_write(p_tty);
+				szTTYBuffer[nTTYBufferIndex++] = ch;
+			}
 		}
 
-		if(f_WaitSend == 0)
+		if (f_WaitSend == 0)
 		{
 			send_recv(RECEIVE, ANY, &msg);
 			src = msg.source;
 			f_WaitSend = 1;
 		}
-
-
 
 	}
 }
@@ -148,7 +138,7 @@ PUBLIC void in_process(TTY* p_tty, u32 key)
 		case F12:
 			/* Alt + F1~F12 */
 			if ((key & FLAG_ALT_L) || (key & FLAG_ALT_R)) {
-				select_console(raw_code - F1);
+				//select_console(raw_code - F1);
 			}
 			else {
 				if (raw_code == F12) {
@@ -186,10 +176,8 @@ PRIVATE void put_key(TTY* p_tty, u32 key)
  *======================================================================*/
 PRIVATE void tty_do_read(TTY* p_tty)
 {
-	if (is_current_console(p_tty->p_console)) {
 
-		keyboard_read(p_tty);
-	}
+	keyboard_read(p_tty);
 }
 
 
@@ -310,7 +298,7 @@ PUBLIC int sys_printx(int _unused1, int _unused2, char* s, struct proc* p_proc)
 		if (ch == MAG_CH_PANIC || ch == MAG_CH_ASSERT)
 			continue; /* skip the magic char */
 
-		out_char(tty_table[p_proc->nr_tty].p_console, ch);
+		out_char(tty.p_console, ch);
 	}
 
 	return 0;

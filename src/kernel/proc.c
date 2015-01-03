@@ -29,7 +29,7 @@ PRIVATE int  deadlock(int src, int dest);
  * <Ring 0> Choose one proc to run.
  *
  *****************************************************************************/
-void* va2py(struct proc* p, void* va);
+
 PUBLIC void schedule()
 {
 	struct proc* p;
@@ -181,12 +181,14 @@ int proc2pid(struct proc* p)
  *
  * @return  The required linear address.
  *****************************************************************************/
+/*
 PUBLIC int ldt_seg_linear(struct proc* p, int idx)
 {
 	struct descriptor * d = &p->ldts[idx];
 
 	return d->base_high << 24 | d->base_mid << 16 | d->base_low;
 }
+*/
 
 /*****************************************************************************
  *				  va2la
@@ -199,6 +201,7 @@ PUBLIC int ldt_seg_linear(struct proc* p, int idx)
  *
  * @return The linear address for the given virtual address.
  *****************************************************************************/
+/*
 PUBLIC void* va2la(int pid, void* va)
 {
 	struct proc* p = proc_table[pid];
@@ -220,6 +223,7 @@ PUBLIC void* va2la(int pid, void* va)
 
 	return (void*)la;
 }
+*/
 
 /*****************************************************************************
  *                                reset_msg

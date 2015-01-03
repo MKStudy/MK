@@ -93,9 +93,10 @@ PUBLIC  int     vsprintf(char *buf, const char *fmt, va_list args);
 PUBLIC	int	sprintf(char *buf, const char *fmt, ...);
 
 /* proc.c */
+void* va2py(struct proc* p, void* va);
 PUBLIC	void	schedule();
-PUBLIC	void*	va2la(int pid, void* va);
-PUBLIC	int	ldt_seg_linear(struct proc* p, int idx);
+//PUBLIC	void*	va2la(int pid, void* va);
+//PUBLIC	int	ldt_seg_linear(struct proc* p, int idx);
 PUBLIC	void	reset_msg(MESSAGE* p);
 PUBLIC	void	dump_msg(const char * title, MESSAGE* m);
 PUBLIC	void	dump_proc(struct proc * p);
@@ -113,7 +114,7 @@ PUBLIC	int	sys_printx(int _unused1, int _unused2, char* s, struct proc * p_proc)
 
 /* syscall.asm */
 PUBLIC  void    sys_call();             /* int_handler */
-PUBLIC void 	   sys_call_ex();
+PUBLIC void 	sys_call_ex();
 
 
 /* 系统调用 - 用户级 */

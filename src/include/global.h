@@ -34,6 +34,6 @@ extern  struct task		task_table[];
 
 extern  struct task		user_proc_table[];
 extern	irq_handler		irq_table[];
-extern	TTY				tty_table[];
-extern  CONSOLE			console_table[];
+extern	TTY				tty_table;
+extern  CONSOLE			console_table;
 

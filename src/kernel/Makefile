@@ -42,7 +42,7 @@ vsprintf.o : ./vsprintf.c
 systask.o : ../services/systask.c
 	$(CC) $(CFLAGS) $@ $<
 
-console.o : ./console.c
+console.o : ../services/console.c
 	$(CC) $(CFLAGS) $@ $<
 
 misc.o : ./misc.c

@@ -191,14 +191,14 @@ PRIVATE void hd_rdwt(MESSAGE * p)
 	hd_cmd_out(&cmd);
 
 	int bytes_left = p->CNT;
-	void * la = (void*)va2la(p->PROC_NR, p->BUF);
+	void * la = (void*)va2py(proc_table[p->PROC_NR], (void*)p->BUF);
 
 	while (bytes_left) {
 		int bytes = min(SECTOR_SIZE, bytes_left);
 		if (p->type == DEV_READ) {
 			interrupt_wait();
 			port_read(REG_DATA, hdbuf, SECTOR_SIZE);
-			phys_copy(la, (void*)va2la(TASK_HD, hdbuf), bytes);
+			phys_copy(la, (void*)va2py(proc_table[TASK_HD], hdbuf), bytes);
 		}
 		else {
 			if (!waitfor(STATUS_DRQ, STATUS_DRQ, HD_TIMEOUT))
@@ -229,8 +229,8 @@ PRIVATE void hd_ioctl(MESSAGE * p)
 	struct hd_info * hdi = &hd_info[drive];
 
 	if (p->REQUEST == DIOCTL_GET_GEO) {
-		void * dst = va2la(p->PROC_NR, p->BUF);
-		void * src = va2la(TASK_HD,
+		void * dst = va2py(proc_table[p->PROC_NR], (void*)p->BUF);
+		void * src = va2py(proc_table[TASK_HD],
 				   device < MAX_PRIM ?
 				   &hdi->primary[device] :
 				   &hdi->logical[(device - MINOR_hd1a) %

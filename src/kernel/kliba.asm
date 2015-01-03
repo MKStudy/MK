@@ -25,14 +25,7 @@ global	enable_int
 global	disable_int
 global	port_read
 global	port_write
-global 	writeVRAM
 global setCR3
-global asmUpdateCR3
-global asmGetCR3
-global updateGDT
-updateGDT:
-int 0x80
-ret
 
 
 memtest_sub:	;unsigned int memtest_sub(unsigned int start, unsigned int end)
@@ -72,40 +65,6 @@ mts_fin:
 	pop		edi
 	ret
 
-asmGetCR3:			;asmGetCR3(u32* addr)
-	push ebp
-	mov ebp,esp
-	push ebx
-	push eax
-
-	mov ebx,[ebp+8]
-	mov eax,cr3
-	mov [ebx],eax
-
-	pop eax
-	pop ebx
-	pop ebp
-	ret
-
-asmUpdateCR3:		;asmUpdateCR3(u32* addr,u32 pageDirNew)
-	push ebp
-	mov ebp,esp
-	push ebx
-	push eax
-
-	mov ebx,[ebp+8]
-	mov eax,cr3
-	mov [ebx],eax
-	push dword [ebp+12]
-	call setCR3
-	add esp,4
-
-	pop eax
-	pop ebx
-	pop ebp
-	ret
-
-
 setCR3:
 	push ebp
 	mov ebp,esp
@@ -122,35 +81,6 @@ setCR3Jmp:
 	pop eax
 	pop ebp
 	ret
-
-
-writeVRAM:
-		push ebp
-		mov ebp,esp
-		add ebp,4
-
-		push eax
-		push ebx
-		push edx
-		push es
-
-		mov ax,  32
-        mov es,ax
-        mov ebx, [ebp + 4]
-        mov dl,  [ebp + 8]
-        mov byte [es:ebx], dl
-        mov dl,  [ebp + 12]
-        mov byte [es:ebx + 1], dl
-        mov dl,  [ebp + 16]
-        mov byte [es:ebx + 2], dl
-
-		pop es
-		pop edx
-		pop ebx
-		pop eax
-		pop ebp
-
-        ret
 
 ; ========================================================================
 ;		   void disp_str(char * info);
