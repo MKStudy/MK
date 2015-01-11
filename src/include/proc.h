@@ -67,6 +67,8 @@ struct proc {
 
 
 	u32	filp[MAX_PROC_FILES];
+
+	u32 vAddrHeapStart;
 };
 
 struct task {

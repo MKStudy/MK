@@ -13,10 +13,17 @@
 #define PAGE_COUNTS		1048576
 #define USER_ADDR		(10*1024)		//用户可用的物理页从10＊1024个页处开始,即40M处
 
+#define MALLOC_HEADER_MALLOC	0x88888888
+
+struct MALLOC_HEADER{
+	unsigned int magic;
+	unsigned int size;
+};
+
+
 int memory_size = 1024*1024*100;
 
 PRIVATE u8 mem_map[PAGE_COUNTS] = {0};					//用1M的空间存储所有物理页分配情况
-PRIVATE u8 mem_kernel_map[PAGE_COUNTS] = {0};
 
 
 
@@ -33,7 +40,8 @@ static void do_exec(MESSAGE* pMsg);
 
 static void do_exit(MESSAGE* pMsg);
 static void do_kmalloc(MESSAGE* pMsg);
-
+static void do_malloc(MESSAGE* pMsg);
+static void do_free(MESSAGE* pMsg);
 
 void memman_init(struct MEMMAN *man);
 unsigned int memman_total(struct MEMMAN *man);
@@ -78,6 +86,14 @@ PUBLIC void task_mm()
             	do_kmalloc(&mm_msg);
             	reply = 1;
             	break;
+            case MALLOC:
+            	do_malloc(&mm_msg);
+            	reply = 1;
+            	break;
+            case FREE:
+                do_free(&mm_msg);
+                reply = 1;
+                break;
             default:
                 dump_msg("MM::unknown msg", &mm_msg);
                 assert(0);
@@ -114,7 +130,165 @@ PRIVATE void mm_init()
 	memman_free(&memman, 0x1400000, 0x2800000);			//20M~40M
 }
 
+static u32 GetProcHeapBase(struct proc* p, u32 requiredPageCount)
+{
+	u32 i;
+	u32 retAddress;
+	u32 pageCount = 0;
+	u32 pageDirBase = p->pageDirBase;
+	u32 vAddr = p->vAddrHeapStart;
+	retAddress = vAddr;
 
+	while(vAddr < 0xFFFFF000 && pageCount < requiredPageCount)
+	{
+		u32 dirIndex = vAddr >> 22;
+		u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
+		u32 pageTable;
+		if (!((*(u32*) (pageDirBase + dirIndex * 4)) & 0xFFFFF000))
+		{
+			pageCount += (1024 - pageIndex);
+			vAddr += (1024 - pageIndex)*0x1000;
+		}
+		else
+		{
+			pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
+			for(i = pageIndex; i < 1024; ++i)
+			{
+				if(*((u32*) (pageTable + (pageIndex + i) * 4)) != 0 && pageCount < requiredPageCount)
+				{
+					vAddr += 0x1000;
+					retAddress = vAddr;
+					pageCount = 0;
+					break;
+				}
+				else if(*((u32*) (pageTable + (pageIndex + i) * 4)) == 0)
+				{
+					vAddr += 0x1000;
+					pageCount++;
+					if(pageCount >= requiredPageCount)
+						break;
+				}
+			}
+
+		}
+	}
+	if(pageCount >= requiredPageCount)
+		return retAddress;
+	return 0;
+
+}
+
+int ValidateVAddr(u32 pageDirBase,u32 vAddr, u32 pageCount)
+{
+	u32 i;
+	for (i = 0; i < pageCount; ++i)
+	{
+		u32 dirIndex = vAddr >> 22;
+		u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
+		u32 pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
+
+		if (pageTable)
+		{
+			u32 page = *((u32*) (pageTable + pageIndex * 4));
+			if (page != 0)
+				return 0;
+
+		}
+		vAddr += 0x1000;
+	}
+	return 1;
+}
+static void do_malloc(MESSAGE* pMsg)
+{
+	u32 i,j;
+	u32 vAddrOrg;
+	u32 size = pMsg->u.m3.m3i1 + sizeof(struct MALLOC_HEADER);
+	u32 pageCount = (size + 0xFFF) >> 12;
+
+
+	u32 pAddr = get_free_page(pageCount);
+
+	if (pAddr == 0)
+		panic("do_malloc failed,pAddr:0x,size:0x%x,pageCount:0x%x%x\n", pAddr,pMsg->u.m3.m3i1,pageCount);
+
+	struct MALLOC_HEADER* pMallocHeader = (struct MALLOC_HEADER*) pAddr;
+	pMallocHeader->magic = MALLOC_HEADER_MALLOC;
+	pMallocHeader->size = size;
+
+	struct proc* p = proc_table[pMsg->source];
+	u32 pageDirBase = p->pageDirBase;
+	u32 vAddr = GetProcHeapBase(p,pageCount);
+	if(!ValidateVAddr(pageDirBase, vAddr, pageCount))
+	{
+		panic("do_malloc vAddr Validate error,vAddr:0x%x, pageCount:0x%x\n",vAddr,pageCount);
+	}
+
+	vAddrOrg = vAddr;
+	for (i = 0; i < pageCount; ++i)
+	{
+		u32 dirIndex = vAddr >> 22;
+		u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
+		u32 pageTable;
+		if (!((*(u32*) (pageDirBase + dirIndex * 4)) & 0xFFFFF000))
+		{
+			pageTable = get_free_page(1);
+			for (j = 0; j < 1024; ++j)
+				*(u32*) (pageTable + j * 4) = 0;
+			*(u32*) (pageDirBase + dirIndex * 4) = pageTable | PG_P | PG_USU | PG_RWW;
+		}
+
+		pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
+
+		if(*((u32*) (pageTable + pageIndex * 4)))
+		{
+			panic("allocated page can't be allocate,vAddr:0x%x\n",vAddr);
+		}
+		*((u32*) (pageTable + pageIndex * 4)) = pAddr | PG_P | PG_USU | PG_RWW;
+		vAddr += 0x1000;
+		pAddr += 0x1000;
+
+	}
+	pMsg->u.m3.m3p1 = (void*)(vAddrOrg + sizeof(struct MALLOC_HEADER));
+}
+static void do_free(MESSAGE* pMsg)
+{
+	u32 i;
+	u32 vAddr = (u32) pMsg->u.m3.m3p1;
+	vAddr -= sizeof(struct MALLOC_HEADER);
+
+	if(vAddr & 0xFFF)
+		panic("do_free error,vAddr:0x%x\n",vAddr);
+	struct proc* p = proc_table[pMsg->source];
+	u32 pageDirBase = p->pageDirBase;
+	u32 dirIndex = vAddr >> 22;
+	u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
+	u32 pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
+	u32 pAddr = *((u32*) (pageTable + pageIndex * 4)) & 0xFFFFF000;
+
+	struct MALLOC_HEADER* pMallocHeader = (struct MALLOC_HEADER*) pAddr;
+
+	if (pMallocHeader->magic != MALLOC_HEADER_MALLOC)
+		panic("magic error,vAddr:0x%x,pAddr:0x%x,pageDirBase:0x%x,pageTable:0x%x\n",
+				vAddr,pAddr,pageDirBase,pageTable);
+
+
+	u32 pageCount = (pMallocHeader->size + 0xFFF) >> 12;
+
+	for (i = 0; i < pageCount; ++i)
+	{
+		dirIndex = vAddr >> 22;
+		pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
+		pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
+		if(*((u32*) (pageTable + pageIndex * 4)) == 0)
+			panic("do_free error\n");
+		*((u32*) (pageTable + pageIndex * 4)) = 0;
+		vAddr += 0x1000;
+	}
+	free_page(pAddr, pageCount);
+	pMsg->u.m3.m3i1 = pMallocHeader->size;
+
+
+}
 static void do_kmalloc(MESSAGE* pMsg)
 {
 	unsigned int size = pMsg->u.m3.m3i1;
@@ -143,7 +317,8 @@ static void do_exit(MESSAGE* pMsg)
 //
 u32 get_free_page(unsigned int pageCount)
 {
-	unsigned int i,j,index;
+	disable_int();
+	unsigned int i,j;
 	unsigned int count;
 	unsigned int allPageCount = memory_size >> 12;
 
@@ -152,23 +327,33 @@ u32 get_free_page(unsigned int pageCount)
 	{
 		if(!mem_map[i])
 		{
-			for(count = 1; count < pageCount; ++count)
+			for(count = 0; (count < pageCount) && (i+count) < allPageCount; ++count)
 			{
+
 				if(mem_map[i+count])
 					break;
 			}
+			if((i+count) >= allPageCount)
+				break;
 			if(count == pageCount)
 			{
 				for(j = 0; j < pageCount; ++j)
+				{
+					if(mem_map[i+j])
+						panic("Error,mem_map index:%d,pageCount:%d\n",i+j,pageCount);
 					mem_map[i+j]++;
+				}
+
+				enable_int();
 				return i << 12;
 			}
 		}
 	}
+
 	panic("Can't get %d pages\n",pageCount);
+	enable_int();
+	return 0;
 }
-
-
 //
 //释放连续的物理页，addr为物理地址,必须4KB对齐,pageCount为物理页数量
 //
@@ -217,77 +402,66 @@ static void freeProcMemery(struct proc* p)
 //
 //为新进程设置分页
 //
-static void setupProgramPage(u32 pageDirBase, u32 vAddr, u32 pageCount)
+static void SetupProgramPage(u32 pageDirBase, u32 vAddr, u32 memSize)
 {
-	//TODO 可能有BUG
-	int i;
-	u32 dirIndex = vAddr >> 22;
-	u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
-	u32 pageTable;
-	if(!((*(u32*)(pageDirBase + dirIndex*4)) && 0xFFFFF000))
+	int i, j;
+	u32 pageCount = ((vAddr + memSize) & 0xFFFFF000) - (vAddr & 0xFFFFF000) + 1;
+
+	u32 stackPaStart = get_free_page(pageCount);
+
+	for (i = 0; i < pageCount; ++i)
 	{
-		pageTable = get_free_page(1);
-		//printf("pageTable:0x%x\n",pageTable);
-		for(i = 0; i < 1024; ++i)
-			*(u32*)(pageTable + i*4) = 0;
-		*(u32*)(pageDirBase + dirIndex*4) = pageTable | PG_P | PG_USU | PG_RWW;
+		u32 vAddrTemp = vAddr + i * 0x1000;
+		u32 dirIndex = vAddrTemp >> 22;
+		u32 pageIndex = (vAddrTemp >> 12) & 0x3FF;	//get middle 10bit
+		u32 pageTable;
+
+		if (!((*(u32*) (pageDirBase + dirIndex * 4)) & 0xFFFFF000))
+		{
+			pageTable = get_free_page(1);
+			//printf("pageTable:0x%x\n",pageTable);
+			for (j = 0; j < 1024; ++j)
+				*(u32*) (pageTable + j * 4) = 0;
+			*(u32*) (pageDirBase + dirIndex * 4) = pageTable | PG_P | PG_USU
+					| PG_RWW;
+		}
+
+		pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
+
+		*((u32*) (pageTable + pageIndex * 4)) = stackPaStart | PG_P | PG_USU
+				| PG_RWW;
+		stackPaStart += 0x1000;
 	}
-
-	pageTable = *(u32*)(pageDirBase + dirIndex*4) & 0xFFFFF000;
-	for(i = 0; i < pageCount; ++i)
-		*((u32*)(pageTable + (pageIndex + i)*4)) = get_free_page(1) | PG_P | PG_USU | PG_RWW;
-
 
 }
 
 //
 //将新进程的执行映像从磁盘读到物理内存中
 //
-static void readFile(u32 flip, u32 pageDirBase, u32 vAddr, u32 offsetInFile, u32 memSize)
+static void ReadFile(u32 flip, u32 pageDirBase, u32 vAddr, u32 offsetInFile, u32 memSize)
 {
-	//TODO 可能有BUG
-	u32 pageCount = (memSize >> 12) + 1;
+	u32 pageCount = ((vAddr + memSize) & 0xFFFFF000) - (vAddr & 0xFFFFF000) + 1;
 	u32 dirIndex = vAddr >> 22;
 	u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
-	u32 pageTable = *(u32*)(pageDirBase + dirIndex*4) & 0xFFFFF000;
+	u32 pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
 	MESSAGE msg;
-	int i;
-	u32 uCount;
-	int nGoon = 1;
 
-	for(i = 0; i < pageCount & nGoon; i++)
-	{
-		if(memSize <= 0)
-			return;
+	u32 offsetInPage = vAddr & 0xFFF;
+	u32 pAddr = *((u32*) (pageTable + (pageIndex) * 4)) & 0xFFFFF000;//physical address
 
-		u32 offsetInPage = vAddr & 0xFFF;
-		u32 pAddr = *((u32*)(pageTable + (pageIndex + i)*4))  & 0xFFFFF000;	//physical address
+	reset_msg(&msg);
+	msg.type = READ;
+	msg.u.m3.m3p1 = (void*) (pAddr + offsetInPage);
+	msg.u.m3.m3i1 = memSize;
+	msg.u.m3.m3i2 = offsetInFile;
+	msg.u.m3.m3i3 = flip;
+	send_recv(BOTH, TASK_FS, &msg);
 
+	//
+	printf("@vAddr:0x%x,pAddr:0x%x\n", vAddr, pAddr);
+	//printf("#%s\n", pAddr+offsetInPage);
+	//
 
-
-
-		uCount = 4096;
-		if(memSize <= 4096)
-		{
-			nGoon = 0;
-			uCount = memSize;
-		}
-
-		reset_msg(&msg);
-		msg.type = READ;
-		msg.u.m3.m3p1 = (void*)(pAddr + offsetInPage);
-		msg.u.m3.m3i1 = uCount;
-		msg.u.m3.m3i2 = offsetInFile;
-		msg.u.m3.m3i3 = flip;
-		send_recv(BOTH, TASK_FS, &msg);
-
-		//
-		printf("@vAddr:0x%x,pAddr:0x%x\n",vAddr, pAddr);
-		//printf("#%s\n", pAddr+offsetInPage);
-		//
-
-		memSize -= uCount;
-	}
 }
 
 //
@@ -295,23 +469,29 @@ static void readFile(u32 flip, u32 pageDirBase, u32 vAddr, u32 offsetInFile, u32
 //
 static void AllocStack(u32 pageDirBase, u32 vAddr, u32 stackSize)
 {
-	int i;
-	u32 pageCount = stackSize >> 12;
-	u32 dirIndex = vAddr >> 22;
-	u32 pageIndex = (vAddr >> 12) & 0x3FF;	//get middle 10bit
-	u32 pageTable;
-	if (!((*(u32*) (pageDirBase + dirIndex * 4)) & 0xFFFFF000))
-	{
-		pageTable = get_free_page(1);
-		for (i = 0; i < 1024; ++i)
-			*(u32*) (pageTable + i * 4) = 0;
-		*(u32*) (pageDirBase + dirIndex * 4) = pageTable | PG_P | PG_USU | PG_RWW;
-	}
+	int i,j;
+	u32 pageCount = (stackSize + 0xFFF) >> 12;
+	u32 stackPaStart = get_free_page(pageCount);
 
-	pageTable = (*(u32*) (pageDirBase + dirIndex * 4)) & 0xFFFFF000;
-	//for (i = 0; i < pageCount; ++i)
-		*((u32*)(pageTable + pageIndex * 4)) =
-				get_free_page(1) | PG_P | PG_USU | PG_RWW;
+	for (i = 0; i < pageCount; ++i)
+	{
+		u32 vAddrTemp = vAddr + i * 0x1000;
+		u32 dirIndex = vAddrTemp >> 22;
+		u32 pageIndex = (vAddrTemp >> 12) & 0x3FF;	//get middle 10bit
+		u32 pageTable;
+		if (!((*(u32*) (pageDirBase + dirIndex * 4)) & 0xFFFFF000))
+		{
+			pageTable = get_free_page(1);
+			for (j = 0; j < 1024; ++j)
+				*(u32*) (pageTable + j * 4) = 0;
+			*(u32*) (pageDirBase + dirIndex * 4) = pageTable | PG_P | PG_USU
+					| PG_RWW;
+		}
+		pageTable = *(u32*) (pageDirBase + dirIndex * 4) & 0xFFFFF000;
+		*((u32*) (pageTable + pageIndex * 4)) = stackPaStart | PG_P | PG_USU
+				| PG_RWW;
+		stackPaStart += 0x1000;
+	}
 }
 
 static void do_exec(MESSAGE* pMsg)
@@ -329,6 +509,7 @@ static void do_exec(MESSAGE* pMsg)
 
 	u32 fileSize = 0;
 	u32 uStackBase = 0;
+	u32 uHeapBase = 0;
 
 	struct proc* p_proc;
 	Elf32_Ehdr * pHdr;
@@ -432,22 +613,23 @@ static void do_exec(MESSAGE* pMsg)
 
 	for (i = 0; i < pHdr->e_phnum; ++i)
 	{
-		u32 vAddr;
-		u32 pageCount;
+
+
 		pPHdr = (Elf32_Phdr*) (void*) (mm_buffer + pHdr->e_phoff
 				+ i * pHdr->e_phentsize);
-		vAddr = pPHdr->p_vaddr;
-		pageCount = (pPHdr->p_memsz >> 12) + 1;
-
-		setupProgramPage(p_proc->pageDirBase, vAddr, pageCount);
-		readFile(flip, p_proc->pageDirBase, vAddr, pPHdr->p_offset, pPHdr->p_memsz);
-
-		printf("program head,entry:0x%x, offset:0x%0x, size:0x%x\n",pPHdr->p_vaddr,pPHdr->p_offset, pPHdr->p_memsz);
 
 		if(i == 0)
-			uStackBase = pPHdr->p_vaddr;
-		//if(pPHdr->p_vaddr != 0)
-		//	uStackBase +=  pPHdr->p_memsz;
+			uHeapBase = pPHdr->p_vaddr & 0xFFFFF000;
+		else
+			uHeapBase += 0x1000 * ((pPHdr->p_memsz + 0xFFF) >> 12);
+
+		if(pPHdr->p_vaddr == 0)
+			continue;
+
+		SetupProgramPage(p_proc->pageDirBase, pPHdr->p_vaddr, pPHdr->p_memsz);
+		ReadFile(flip, p_proc->pageDirBase, pPHdr->p_vaddr, pPHdr->p_offset, pPHdr->p_memsz);
+
+		printf("program head,entry:0x%x, offset:0x%0x, size:0x%x\n",pPHdr->p_vaddr,pPHdr->p_offset, pPHdr->p_memsz);
 
 	}
 
@@ -456,13 +638,15 @@ static void do_exec(MESSAGE* pMsg)
 	msg.u.m3.m3i1 = flip;
 	send_recv(BOTH, TASK_FS, &msg);
 
-	//uStackBase = 100*1024*1024;
-	uStackBase += fileSize + 0x1000;
+	uStackBase = 0xFFFFFFFF - 1*1024*1024;
+	//uStackBase += fileSize + 0x1000;
 	uStackBase &= 0xFFFFF000;
 
-	AllocStack(p_proc->pageDirBase, uStackBase, 4*1024);
-	p_proc->regs.esp = (u32) (uStackBase + 4*1024);
+	AllocStack(p_proc->pageDirBase, uStackBase, 1*1024*1024);
+	p_proc->regs.esp = (u32) (uStackBase + 1*1024*1024);
 
+
+	p_proc->vAddrHeapStart = uHeapBase + 1*1024*1024;
 	//printf("stackBase:0x%x\n",uStackBase);
 	//printf("esp:0x%x\n",p_proc->regs.esp);
 

@@ -1,26 +1,33 @@
 ASM	= nasm
 CC = gcc
-CFLAGS = -c -m32 -g  -fno-builtin
+CFLAGS = -fno-stack-protector -g -c -m32  -fno-builtin -o
 LIB=mkcrt.a
 LOBJS=exit.o \
 	  misc.o \
 	  syscall.o \
 	  string.o \
-	  start.o
+	  start.o \
+	  printf.o \
+	  vsprintf.o \
 
 all:$(LIB)
 
 $(LIB): $(LOBJS)
 	ar -rv $@ $<
 
+printf.o : printf.c
+	$(CC) $(CFLAGS) $@ $<
+vsprintf.o : vsprintf.c
+	$(CC) $(CFLAGS) $@ $<
+	
 misc.o:misc.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $@ $<
 syscall.o:syscall.asm
 	$(ASM) -f elf -o $@ $<
 string.o:string.asm
 	$(ASM) -f elf -o $@ $<
 exit.o : exit.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) $@ $<
 	
 start.o : start.asm
 	$(ASM) -f elf -o $@ $<

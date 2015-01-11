@@ -187,7 +187,7 @@ enum msgtype {
 	TTY_ENTER,
 
 	/* MM */
-	EXEC, WAIT,KMALLOC,
+	EXEC, WAIT,KMALLOC,MALLOC,FREE,
 
 	/* FS & MM */
 	FORK, EXIT,

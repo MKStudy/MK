@@ -8,7 +8,9 @@ OBJS = echo.o \
 	   ../lib/exit.o \
 	   ../lib/misc.o \
 	   ../lib/syscall.o \
-	   ../lib/string.o
+	   ../lib/string.o \
+	   ../lib/printf.o \
+	   ../lib/vsprintf.o
 	   
 all:$(TARGET)
 

@@ -1,9 +1,5 @@
 #include "../include/type.h"
 
-#define EFLAGS_AC_BIT		0x00040000
-#define CR0_CACHE_DISABLE	0x60000000
-
-
 void memman_init(struct MEMMAN *man)
 {
 	man->frees = 0;			/* 偁偒忣曬偺屄悢 */

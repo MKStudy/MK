@@ -4,7 +4,7 @@ CFLAGS = -fno-stack-protector -g -c -m32  -fno-builtin -o
 LD = ld
 
 OBJS=kernelex.o start.o global.o kliba.o stringAsm.o protect.o i8259.o klib.o main.o clock.o syscall.o proc.o \
-	keyboard.o tty.o printf.o misc.o console.o systask.o vsprintf.o hd.o fs.o mm.o string.o kmalloc.o memory.o \
+	keyboard.o tty.o ../lib/vsprintf.o ../lib/printf.o misc.o console.o systask.o hd.o fs.o mm.o string.o kmalloc.o memory.o \
 	init.o shell.o
 
 all : kernelex.elf
@@ -36,9 +36,6 @@ fs.o : ../services/fs.c
 mm.o : ../services/mm.c
 	$(CC) $(CFLAGS) $@ $<
 
-vsprintf.o : ./vsprintf.c
-	$(CC) $(CFLAGS) $@ $<
-
 systask.o : ../services/systask.c
 	$(CC) $(CFLAGS) $@ $<
 
@@ -47,10 +44,7 @@ console.o : ../services/console.c
 
 misc.o : ./misc.c
 	$(CC) $(CFLAGS) $@ $<
-
-printf.o : ./printf.c
-	$(CC) $(CFLAGS) $@ $<
-
+	
 tty.o : ../services/tty.c
 	$(CC) $(CFLAGS) $@ $<
 
